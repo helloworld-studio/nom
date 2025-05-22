@@ -1,0 +1,29 @@
+{
+  "name": "nom",
+  "version": "0.0.1",
+  "description": "In nom we trust.",
+  "main": "nom.js",
+  "scripts": {
+    "start": "node nom.js",
+    "build": "cd client && npm install && npm run build",
+    "dev": "nodemon nom.js"
+  },
+  "keywords": [],
+  "author": "Umanerror",
+  "license": "MIT",
+  "dependencies": {
+    "@metaplex-foundation/js": "^0.20.1",
+    "@raydium-io/raydium-sdk-v2": "^0.1.128-alpha",
+    "@solana/web3.js": "^1.92.0",
+    "axios": "^1.6.7",
+    "bn.js": "^5.2.1",
+    "cors": "^2.8.5",
+    "decimal.js": "^10.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}

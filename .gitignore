@@ -1,0 +1,35 @@
+# General ignores
+.DS_Store
+.idea/
+.vscode/
+npm-debug.log*
+yarn-error.log
+yarn-debug.log
+Thumbs.db
+
+
+node_modules/
+
+# Frontend (client) specific ignores
+client/build/
+client/coverage/
+client/.env.local
+client/.env.development.local
+client/.env.test.local
+client/.env.production.local
+
+# Backend specific ignores 
+
+dist/
+logs/
+*.log
+.env
+*.env
+
+# Temp files
+.tmp/
+temp/
+
+# Local files
+*.local.js
+*.local.json
