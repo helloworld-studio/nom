@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: nom
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RPC_URL
+        sync: false
+      - key: CORS_ORIGIN
+        value: https://nom.onrender.com
+    autoDeploy: true
