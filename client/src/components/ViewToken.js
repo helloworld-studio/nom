@@ -1,7 +1,6 @@
 /* eslint-disable no-undef */
 import React, { useState, useEffect } from "react";
 import "../App.css";
-import axios from "axios";
 import SwapComponent from './SwapComponent';
 import TokenInfo from './TokenInfo';
 import BananaGang from "../assets/helloworld.png";
@@ -23,16 +22,38 @@ const ViewToken = ({
     useEffect(() => {
         const fetchLatestTransaction = async () => {
             try {
-                const response = await axios.get(`${config.API_BASE_URL}/api/latest-transaction`);
-                        if (response.data.success) {
-                    setLatestTransaction(response.data.data);
+                console.log('Attempting to fetch latest transaction...');
+                
+                const apiUrl = 'https://nom-ibs6.onrender.com/api/latest-transaction';
+                
+                console.log('Fetching from:', apiUrl);
+                
+                const response = await fetch(apiUrl);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    console.error('API response not OK:', response.status, response.statusText);
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Data received:', data);
+                
+                if (data.success) {
+                    console.log('Setting latest transaction data');
+                    setLatestTransaction(data.data);
+                } else {
+                    console.log('API returned success: false');
                 }
             } catch (error) {
-                console.error("Error fetching latest transaction:", error);
+                console.error("Error fetching latest transaction:", error.message);
             }
         };
 
-        const interval = setInterval(fetchLatestTransaction, 2000);
+        // Run immediately once
+        fetchLatestTransaction();
+
+        const interval = setInterval(fetchLatestTransaction, 5000);
         return () => clearInterval(interval);
     }, []);
 
