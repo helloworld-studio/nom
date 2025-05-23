@@ -20,7 +20,6 @@ const ViewToken = ({
     const [showSwap, setShowSwap] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
 
-    // Fetch latest transaction data periodically
     useEffect(() => {
         const fetchLatestTransaction = async () => {
             try {
@@ -180,7 +179,7 @@ const ViewToken = ({
                 rel="noopener noreferrer" 
                 style={{ display: 'block', textAlign: 'center' }}
             >
-                <img src={BananaGang} alt="Banana Gang" className="banana-gang" />
+                <img src={BananaGang} alt="Banana Gang github" className="banana-gang" />
             </a>
         </div>
     );

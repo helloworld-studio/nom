@@ -12,7 +12,6 @@ import { VersionedTransaction } from '@solana/web3.js';
 
 const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
-// Add this right below the RAYDIUM_LAUNCHPAD_PROGRAM_ID constant
 const NOM_TOKEN_MINT = "2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk";
 const NOM_POOL_ID = "949rM1nZto1ZGYP5Mxwrfvwhr5CxRbVTsHaCL9S73pLu";
 
@@ -32,7 +31,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         symbol: tokenSymbol
     });
 
-    // Add state for quick buy amount
     const [quickBuyAmount, setQuickBuyAmount] = useState('0.1');
 
     useEffect(() => {
@@ -56,12 +54,10 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                     const tokenAmount = Number(requiredToken.account.data.parsed.info.tokenAmount.amount);
                     if (tokenAmount > 0) {
                         setHasRequiredToken(true);
-                        // Skip showing any messages if user has the token
                         return;
                     }
                 }
                 
-                // Only show error and set state to false if token is not found or amount is 0
                 console.log('Required token not found or amount is 0');
                 setHasRequiredToken(false);
 
@@ -85,7 +81,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         fetchBalance();
     }, []);
 
-    // Define getPoolId at component level so it's available to all methods
     const getPoolId = async (raydium, mintA, mintB) => {
         // Special case for NOM token
         if (mintA.toString() === NOM_TOKEN_MINT) {
@@ -93,7 +88,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             return new PublicKey(NOM_POOL_ID);
         }
         
-        // For other tokens, derive as usual
         return getPdaLaunchpadPoolId(new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID), mintA, mintB).publicKey;
     };
 
@@ -124,7 +118,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             }
              console.log("Token Decimals (decimalsA):", poolInfo.mintDecimalsA);
 
-            // Get platform info first
             const connection = new Connection(config.RPC_URL);
             const platformData = await connection.getAccountInfo(poolInfo.platformId);
             if (!platformData) {
@@ -346,7 +339,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         }
     };
 
-    // Add increment/decrement functions for quick buy
     const incrementQuickBuyAmount = () => {
         const currentVal = parseFloat(quickBuyAmount) || 0;
         const newVal = (Math.round((currentVal + 0.1) * 10) / 10).toFixed(1);
@@ -367,7 +359,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         }
     };
 
-    // Modify the handleQuickBuy function to use quickBuyAmount
     const buyNomToken = async () => {
         if (!window.solana?.publicKey) {
             toast.error('Please connect your wallet first');
@@ -387,14 +378,12 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             
             console.log('Getting swap quote...');
             
-            // Step 1: Get quote from Raydium API
             const quoteResponse = await axios.get(
                 `https://transaction-v1.raydium.io/compute/swap-base-in?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&txVersion=${txVersion}`
             );
             
             console.log('Quote received:', quoteResponse.data);
             
-            // Step 2: Get transaction from Raydium API
             const txResponse = await axios.post('https://transaction-v1.raydium.io/transaction/swap-base-in', {
                 computeUnitPriceMicroLamports: '100', // Fixed priority fee
                 swapResponse: quoteResponse.data,
@@ -408,11 +397,9 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             
             console.log('Transaction received:', txResponse.data);
             
-            // Step 3: Deserialize the transaction
             const txBuffer = Buffer.from(txResponse.data.data[0].transaction, 'base64');
             const transaction = VersionedTransaction.deserialize(txBuffer);
             
-            // Step 4: Sign and send the transaction
             console.log('Signing transaction...');
             const signedTx = await window.solana.signTransaction(transaction);
             
