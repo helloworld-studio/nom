@@ -27,7 +27,7 @@ const analyzeLimiter = rateLimit({
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: process.env.NODE_ENV === 'production' ? '*' : (process.env.CORS_ORIGIN || "http://localhost:3000"),
     credentials: true,
   })
 );
@@ -245,10 +245,10 @@ app.post("/api/analyze", analyzeLimiter, async (req, res) => {
     }
 });
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client/build", "index.html"));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

@@ -2,7 +2,9 @@ services:
   - type: web
     name: nom
     env: node
-    buildCommand: npm install && npm run build
+    buildCommand: |
+      npm install
+      cd client && npm install && npm run build && cd ..
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -10,5 +12,11 @@ services:
       - key: RPC_URL
         sync: false
       - key: CORS_ORIGIN
+        value: '*'
+      - key: PORT
+        value: 10000
+      - key: REACT_APP_API_URL
         value: https://nom.onrender.com
+      - key: REACT_APP_RPC_URL
+        fromKey: RPC_URL
     autoDeploy: true
