@@ -1,27 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import '../App.css';
-import { config } from '../config';
 
 const Settings = ({ onClose }) => {
   const [rpcUrl, setRpcUrl] = useState('');
   const [saved, setSaved] = useState(false);
+  const [hasCustomRpc, setHasCustomRpc] = useState(false);
 
   useEffect(() => {
-    const savedRpcUrl = localStorage.getItem('rpcUrl');
-    if (savedRpcUrl) {
-      setRpcUrl(savedRpcUrl);
-    } else {
-      setRpcUrl(config.RPC_URL || '');
-    }
+    const customRpc = localStorage.getItem('rpcUrl');
+    setHasCustomRpc(!!customRpc);
+    setRpcUrl('');
   }, []);
 
   const handleSave = () => {
-    if (rpcUrl) {
-      localStorage.setItem('rpcUrl', rpcUrl);
-      
+    if (rpcUrl && rpcUrl.trim()) {
+      localStorage.setItem('rpcUrl', rpcUrl.trim());
+      setHasCustomRpc(true);
       setSaved(true);
+      setRpcUrl(''); 
       setTimeout(() => setSaved(false), 3000);
     }
+  };
+
+  const handleClear = () => {
+    localStorage.removeItem('rpcUrl');
+    setHasCustomRpc(false);
+    setRpcUrl('');
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   };
 
   return (
@@ -40,27 +46,31 @@ const Settings = ({ onClose }) => {
                 placeholder="Enter your Solana RPC URL"
                 className="settings-input"
               />
+              {hasCustomRpc && (
+                <div className="custom-rpc-status">
+                  ✅ Custom RPC URL is set
+                </div>
+              )}
             </div>
             <div className="info-card-label">Solana RPC URL</div>
           </div>
-
-          {saved && (
-            <div className="info-card" style={{ color: "#3ecf8e" }}>
-              <div className="info-card-icon">✅</div>
-              <div className="info-card-value">Settings Saved!</div>
-              <div className="info-card-label">Refresh page to apply changes</div>
-            </div>
-          )}
         </div>
         
-        <div className="button-container">
-          <button className="close-button" onClick={handleSave}>
+        <div className="swap-buttons">
+          <button className="swap-button" onClick={handleSave}>
             Save
           </button>
-          <button className="close-button" onClick={onClose}>
+          {hasCustomRpc && (
+            <button className="swap-button cancel-button" onClick={handleClear}>
+              Clear Custom RPC
+            </button>
+          )}
+          <button className="swap-button cancel-button" onClick={onClose}>
             Close
           </button>
         </div>
+        
+        {saved && <div className="saved-message">Settings saved!</div>}
       </div>
     </div>
   );

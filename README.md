@@ -88,13 +88,39 @@ npm start
 - `GET /api/token/analytics/:mint`: Get analytics for a specific token mint
 - `POST /api/analyze`: Get AI analysis of a token (rate limited)
 
-## Deployment
+## Deployment on Render.com
 
-The application is ready for deployment on platforms like Heroku, Render, or DigitalOcean:
+### 1. Create a Web Service
 
-1. Set the required environment variables on your hosting platform
-2. Deploy the code to your platform
-3. The build script will automatically build the frontend
+1. Sign up or log in to [Render.com](https://render.com)
+2. Click "New" and select "Web Service"
+3. Connect your GitHub/GitLab repository
+4. Configure your service:
+   - **Name**: nom (or your preferred name)
+   - **Environment**: Node
+   - **Build Command**: `npm install && cd client && npm install && npm run build && cd ..`
+   - **Start Command**: `npm start`
+
+### 2. Configure Environment Variables
+
+Click "Advanced" and add these environment variables:
+
+- `NODE_ENV`: `production`
+- `RPC_URL`: Your Solana RPC endpoint (mark as secret)
+- `CORS_ORIGIN`: `*`
+- `PORT`: `10000`
+- `REACT_APP_API_URL`: The URL of your Render deployment (will look like `https://nom.onrender.com`)
+- `REACT_APP_RPC_URL`: Same value as your backend `RPC_URL`
+
+### 3. Deploy
+
+Click "Create Web Service" to deploy your application. Once deployment is complete, you can access your application at the URL provided by Render.
+
+### Important Notes for Render Deployment
+
+- The server must bind to `0.0.0.0` to work on Render (this is already configured in the codebase)
+- The frontend and backend are deployed together as a single service
+- Environment variables with `REACT_APP_` prefix need to be available during build time
 
 ## License
 
