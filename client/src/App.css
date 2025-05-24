@@ -1,3 +1,13 @@
+/* === Viewport Fix === */
+@viewport {
+  width: device-width;
+  zoom: 1.0;
+}
+
+@-ms-viewport {
+  width: device-width;
+}
+
 /* === Global Variables === */
 :root {
   /* Main color palette */
@@ -58,6 +68,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow-x: hidden;
+  max-width: 100%;
+  position: relative;
 }
 
 body {
@@ -65,23 +77,25 @@ body {
   font-family: 'Press Start 2P', monospace;
   background: var(--color-background-dark);
   color: var(--color-text-primary);
-  font-size: 10px;
+  font-size: calc(8px + 0.4vw);
   image-rendering: pixelated;
   padding: 0;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* === App Container === */
 .App {
   background: var(--color-background-medium);
-  border: 3px solid var(--color-background-darkest);
+  border: 2px solid var(--color-background-darkest);
   border-radius: 0;
   box-shadow: 0 4px 0 var(--color-background-darkest), 0 0 0 2px var(--color-background-light) inset;
   width: 100%;
   max-width: 100%;
   min-height: 100vh;
   margin: 0 auto;
-  padding: 8px 4px 4px 4px;
+  padding: max(6px, 2vw) max(4px, 1vw);
   position: relative;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -91,8 +105,8 @@ body {
 .App h1 {
   background: var(--color-background-header);
   color: var(--color-text-highlight);
-  font-size: 10px;
-  padding: 6px 10px;
+  font-size: 9px;
+  padding: 5px 8px;
   margin: -8px -4px 10px -4px;
   border-bottom: 2px solid var(--color-background-light);
   display: flex;
@@ -121,9 +135,9 @@ body {
   border: 2px solid var(--color-background-light);
   box-shadow: 2px 2px 0 var(--color-background-darkest);
   border-radius: 0;
-  margin: 10px 0;
-  padding: 6px;
-  width: 100%;
+  margin: max(10px, 2vh) auto;
+  padding: max(6px, 2vw);
+  width: 95%;
   max-width: 100%;
   overflow: hidden;
 }
@@ -166,10 +180,10 @@ body {
 /* === Wallet Styles === */
 .wallet-container {
   position: static;
-  margin: 8px 0;
-  padding: 6px;
+  margin: max(8px, 2vh) auto;
+  padding: max(6px, 2vw);
   max-width: 100%;
-  width: 100%;
+  width: 95%;
   box-sizing: border-box;
   background: var(--color-background-dark);
   border: 2px solid var(--color-background-light);
@@ -229,6 +243,10 @@ body {
 
 /* === Buttons === */
 button, .wallet-button, .wallet-button-disconnect, .swap-button, .chart-button, .info-button, .swap-execute-button, .close-button, .wallet-adapter-button-trigger {
+  padding: max(8px, 2vw) max(16px, 4vw);
+  font-size: max(9px, 2.5vw);
+  width: auto;
+  max-width: 95%;
   background: var(--color-button-primary);
   color: var(--color-button-primary-text);
   border: 2px solid var(--color-border-highlight);
@@ -375,6 +393,9 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--color-background-light) var(--color-background-dark);
+  width: 95%;
+  margin: 0 auto;
+  word-break: break-word;
 }
 
 .transaction-details::-webkit-scrollbar {
@@ -895,6 +916,25 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
 }
 
 /* === Responsive Adjustments === */
+@media (max-width: 480px) {
+  .button-wrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  button, .wallet-button, .swap-button, .chart-button, .info-button, .swap-execute-button, .close-button {
+    width: 100%;
+  }
+
+  .transaction-details p {
+    font-size: max(8px, 2vw);
+  }
+
+  .wallet-data p {
+    font-size: max(8px, 2vw);
+  }
+}
+
 @media (min-width: 600px) {
   .App {
     max-width: 380px;
@@ -1021,6 +1061,25 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
 .curve-info div {
   font-size: 9px;
   color: var(--color-text-secondary);
+}
+
+@media (max-width: 480px) {
+  .button-wrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  button, .wallet-button, .swap-button, .chart-button, .info-button, .swap-execute-button, .close-button {
+    width: 100%;
+  }
+
+  .transaction-details p {
+    font-size: max(8px, 2vw);
+  }
+
+  .wallet-data p {
+    font-size: max(8px, 2vw);
+  }
 }
 
 @media (min-width: 600px) {
