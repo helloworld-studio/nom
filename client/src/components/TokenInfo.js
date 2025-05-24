@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import axios from "axios";
 import "../App.css"; 
 import { config } from '../config';
 
@@ -54,43 +55,21 @@ const TokenInfo = ({ onClose }) => {
 
   useEffect(() => {
     setLoading(true);
-    
-    const fetchAnalytics = async () => {
-      try {
-        console.log('Fetching analytics data...');
-        
-        // Use hardcoded URL temporarily to verify connection
-        const apiUrl = 'https://nom-ibs6.onrender.com/api/latest-transaction/analytics';
-        
-        console.log('Fetching from:', apiUrl);
-        
-        const response = await fetch(apiUrl);
-        console.log('Analytics response status:', response.status);
-        
-        if (!response.ok) {
-          console.error('API response not OK:', response.status, response.statusText);
-          setError(`API error: ${response.status} ${response.statusText}`);
-          return;
-        }
-        
-        const data = await response.json();
-        console.log('Analytics data received:', data);
-        
-        if (data.success) {
-          console.log('Setting analytics data');
-          setAnalytics(data.data);
+    axios.get(`${config.API_BASE_URL}/api/latest-transaction/analytics`)
+      .then(res => {
+        console.log("Analytics API response:", res.data);
+        if (res.data.success) {
+          setAnalytics(res.data.data);
         } else {
-          setError(data.error || "Failed to load analytics");
+          setError(res.data.error || "Failed to load analytics");
         }
-      } catch (err) {
-        console.error('Error fetching analytics:', err.message);
+      })
+      .catch(err => {
         setError(err.message);
-      } finally {
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-    
-    fetchAnalytics();
+      });
   }, []);
 
   return (
