@@ -38,10 +38,27 @@
   /* Highlights and accents */
   --color-highlight-inner: #fff;
   --color-highlight-border: #fffbe6;
+
+  /* Mobile breakpoints */
+  --breakpoint-small: 320px;
+  --breakpoint-medium: 480px;
+  --breakpoint-large: 768px;
 }
 
 /* === Global Styles === */
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
 
 body {
   margin: 0;
@@ -51,6 +68,7 @@ body {
   font-size: 10px;
   image-rendering: pixelated;
   padding: 0;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* === App Container === */
@@ -59,12 +77,14 @@ body {
   border: 3px solid var(--color-background-darkest);
   border-radius: 0;
   box-shadow: 0 4px 0 var(--color-background-darkest), 0 0 0 2px var(--color-background-light) inset;
+  width: 100%;
   max-width: 100%;
   min-height: 100vh;
   margin: 0 auto;
   padding: 8px 4px 4px 4px;
   position: relative;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* === Top Bar === */
@@ -72,7 +92,7 @@ body {
   background: var(--color-background-header);
   color: var(--color-text-highlight);
   font-size: 10px;
-  padding: 6px 18px;
+  padding: 6px 10px;
   margin: -8px -4px 10px -4px;
   border-bottom: 2px solid var(--color-background-light);
   display: flex;
@@ -83,6 +103,9 @@ body {
   position: relative;
   z-index: 10;
   text-shadow: 1px 1px 0 var(--color-background-darkest);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .App h1::after {
@@ -98,18 +121,20 @@ body {
   border: 2px solid var(--color-background-light);
   box-shadow: 2px 2px 0 var(--color-background-darkest);
   border-radius: 0;
-  margin: 18px 0;
+  margin: 10px 0;
   padding: 6px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 /* === Logo === */
 .logo {
-  width: 96px;
+  width: 80px;
   padding: 0;
   margin: 0;
   display: block;
   image-rendering: pixelated;
-  
 }
 
 .banana-gang {
@@ -130,7 +155,7 @@ body {
 /* === Text Styling === */
 .text-arcade {
   font-family: 'Press Start 2P', monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-text-highlight);
   text-shadow: 1px 1px 0 var(--color-background-darkest);
   margin: 0 0 8px 0;
@@ -150,20 +175,45 @@ body {
   border: 2px solid var(--color-background-light);
   box-shadow: 2px 2px 0 var(--color-background-darkest);
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+@media (min-width: 480px) {
+  .wallet-container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 .wallet-data {
-  margin-top: 0; 
+  margin-top: 6px; 
   font-size: 0.9em; 
   text-align: left;
-  flex-grow: 1;
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .wallet-data {
+    margin-top: 0;
+    text-align: right;
+    width: auto;
+  }
 }
 
 .wallet-data p {
-  text-align: right;
+  text-align: left;
   margin: 2px 4px; 
   color: var(--color-text-primary); 
   font-size: 9px; 
+}
+
+@media (min-width: 480px) {
+  .wallet-data p {
+    text-align: right;
+  }
 }
 
 .wallet-data p span { 
@@ -1116,8 +1166,6 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
   cursor: pointer;
 }
 
-
-
 .rugcheck-button {
   background-color: #f30000;
 }
@@ -1311,12 +1359,3 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
     width: 100%;
     margin-top: 10px;
 }
-
-
-
-
-
-
-
-
-
