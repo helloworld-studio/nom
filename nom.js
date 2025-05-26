@@ -28,19 +28,25 @@ const analyzeLimiter = rateLimit({
 app.use(
   cors({
     origin: function(origin, callback) {
-      if (!origin) return callback(null, true);
-      
-      // For production, use CORS_ORIGIN or default to the Render URL
-      // For development, use DEV_CORS_ORIGIN or default to localhost:3000
-      const allowedOrigins = process.env.NODE_ENV === 'production' 
-        ? (process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['https://nom-ibs6.onrender.com']) 
-        : (process.env.DEV_CORS_ORIGIN ? process.env.DEV_CORS_ORIGIN.split(',') : ['http://localhost:3000']);
-      
-      if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
+      if (!origin) {
+        return callback(null, true);
       }
+      
+      if (origin.includes('nom-ibs6.onrender.com')) {
+        return callback(null, true);
+      }
+      
+      // For development environments
+      if (origin.includes('localhost')) {
+        return callback(null, true);
+      }
+      
+      const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [];
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
