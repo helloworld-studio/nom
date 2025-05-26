@@ -2,8 +2,11 @@
 
 A real-time Solana token monitoring application that tracks new token launches from Raydium LetsBonk Launchpad, providing analytics and soon will support AI-powered insights.
 
+## Development Status
+
+⚠️ **IMPORTANT**: Nom is currently in active development. You may encounter bugs, incomplete features, or unexpected behavior. We're continuously improving the application and appreciate your patience and feedback as we work to enhance Nom.
+
 ## Features
-§
 - **Real-time Token Monitoring**: Tracks newly launched tokens on Solana
 - **Multi-Platform Support**: Monitors Raydium LetsBonk Launchpad
 - **Token Analytics**: Provides holder distribution, bonding curve progress, and other metrics
@@ -123,3 +126,9 @@ Click "Create Web Service" to deploy your application. Once deployment is comple
 ## License
 
 MIT
+
+## Legal
+
+- [Privacy Policy](./PRIVACY.md)
+- [Terms of Service](./TERMS.md)
+- [Disclaimer](./DISCLAIMER.md)
