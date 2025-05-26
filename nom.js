@@ -49,6 +49,7 @@ const connection = new Connection(RPC_ENDPOINT, {
 
 const metaplex = Metaplex.make(connection);
 
+
 const tokenMonitor = new TokenMonitor(connection, metaplex);
 
 tokenMonitor.monitorTokens();
