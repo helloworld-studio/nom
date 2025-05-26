@@ -17,6 +17,7 @@ class TokenMonitor {
     this.latestTokenData = null;
     this.subscriptionId = null;
     this.isMonitoring = false;
+    this.startTime = Math.floor(Date.now() / 1000);
 
     this.RAYDIUM_LAUNCHPAD_PROGRAM_ID = RAYDIUM_LAUNCHPAD_PROGRAM_ID;
     this.LETSBONK_PROGRAM_ID = LETSBONK_PROGRAM_ID;
@@ -208,6 +209,12 @@ class TokenMonitor {
         return;
       }
       
+      // Only process transactions that happened after this instance started
+      if (tx.blockTime < this.startTime) {
+        this.formatLog(`Skipping transaction that occurred before this instance started: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+        return;
+      }
+      
       const currentTimeSeconds = Math.floor(Date.now() / 1000);
       const txAge = currentTimeSeconds - tx.blockTime;
       
@@ -352,28 +359,199 @@ class TokenMonitor {
 
     try {
       this.isMonitoring = true;
-      this.formatLog("Starting token monitoring via WebSocket...", "info");
+      this.formatLog("Starting token monitoring via WebSocket (optimized for RPC limits)...", "info");
+      this.formatLog(`Monitoring start time: ${new Date(this.startTime * 1000).toLocaleString()}`, "info");
 
-      // Subscribe to program account logs
-      this.subscriptionId = this.connection.onProgramAccountChange(
+      // Subscribe to program logs
+      this.subscriptionId = this.connection.onLogs(
         new PublicKey(this.LETSBONK_PROGRAM_ID),
-        async (accountInfo, context) => {
-          this.formatLog(`WebSocket event received for LetsBonk program`, "info");
-          
+        async (logs, context) => {
           try {
-            // Get the latest signatures for this program
-            const signatures = await this.connection.getSignaturesForAddress(
-              new PublicKey(this.LETSBONK_PROGRAM_ID),
-              { limit: 5 },
-              "confirmed"
-            );
+            if (this.processedTransactions.has(logs.signature)) {
+              return;
+            }
+            this.processedTransactions.add(logs.signature);
             
-            if (signatures.length > 0) {
-              // Process the most recent transaction
-              await this.processTransaction(signatures[0].signature);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            this.formatLog(`WebSocket event received: ${logs.signature}`, "info");
+            
+            const tx = await this.connection.getParsedTransaction(logs.signature, {
+              maxSupportedTransactionVersion: 0,
+              commitment: "confirmed"
+            });
+            
+            if (!tx || !tx.meta || !tx.blockTime) {
+              return;
+            }
+            
+            // Only process transactions that happened after this instance started
+            if (tx.blockTime < this.startTime) {
+              this.formatLog(`Skipping transaction that occurred before this instance started: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+              return;
+            }
+            
+            const currentTimeSeconds = Math.floor(Date.now() / 1000);
+            const txAge = currentTimeSeconds - tx.blockTime;
+            if (txAge > this.NEW_TOKEN_WINDOW) {
+              this.formatLog(`Skipping older transaction from ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+              return;
+            }
+            
+            if (!tx.meta.postTokenBalances || tx.meta.postTokenBalances.length === 0) {
+              return;
+            }
+            let hasTokenCreation = false;
+            let hasBonkToken = false;
+            
+            for (const balance of tx.meta.postTokenBalances) {
+              if (!balance.mint) continue;
               
-              // Update token summary if needed
-              this.updateTokenSummary();
+              if (balance.mint === "So11111111111111111111111111111111111111112") {
+                continue;
+              }
+              
+              if (this.isLetsBonkToken(balance.mint)) {
+                hasBonkToken = true;
+                
+                if (this.knownTokens.has(balance.mint)) {
+                  continue;
+                }
+                
+                hasTokenCreation = true;
+                break;
+              }
+            }
+            
+            if (!hasTokenCreation) {
+              if (hasBonkToken) {
+                this.formatLog("Transaction contains known LetsBonk tokens only", "info");
+              }
+              return;
+            }
+            
+            for (const balance of tx.meta.postTokenBalances) {
+              if (!balance.mint || this.knownTokens.has(balance.mint)) {
+                continue;
+              }
+              
+              if (balance.mint === "So11111111111111111111111111111111111111112") {
+                continue;
+              }
+              
+              if (!this.isLetsBonkToken(balance.mint)) {
+                this.formatLog(`Skipping non-LetsBonk token: ${balance.mint}`, "info");
+                continue;
+              }
+              
+              try {
+                const isToken = await this.isTokenAddress(balance.mint);
+                if (!isToken) continue;
+                
+                this.formatLog(`Found new LetsBonk token:`, "success");
+                this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
+                this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
+                this.knownTokens.add(balance.mint);
+                
+                const fetchedMetadata = await this.getTokenMetadata(balance.mint);
+                this.formatLog(`├─ Name: ${fetchedMetadata.name}`, "info");
+                this.formatLog(`├─ Symbol: ${fetchedMetadata.symbol}`, "info");
+                
+                let uiAmount = 0;
+                if (balance.uiTokenAmount && balance.uiTokenAmount.uiAmount) {
+                  uiAmount = typeof balance.uiTokenAmount.uiAmount === 'string' ? 
+                    parseFloat(balance.uiTokenAmount.uiAmount) : 
+                    balance.uiTokenAmount.uiAmount;
+                }
+                
+                const feeSol = tx.meta.fee ? tx.meta.fee / LAMPORTS_PER_SOL : 0;
+                
+                const tokenData = {
+                  id: logs.signature,
+                  mint: balance.mint,
+                  name: fetchedMetadata.name || "Unknown",
+                  symbol: fetchedMetadata.symbol || "Unknown",
+                  initialBuy: uiAmount,
+                  solAmount: feeSol,
+                  marketCapSol: 0,
+                  uri: fetchedMetadata.uri,
+                  image: fetchedMetadata.image,
+                  metadata: fetchedMetadata.metadata || {},
+                  transaction: {
+                    signature: logs.signature,
+                    blockTime: tx.blockTime,
+                    slot: tx.slot
+                  }
+                };
+
+                const txMetadata = await this.extractMetadataFromTransaction(tx);
+                if (txMetadata) {
+                  tokenData.name = txMetadata.name || tokenData.name;
+                  tokenData.symbol = txMetadata.symbol || tokenData.symbol;
+                  tokenData.uri = txMetadata.uri || tokenData.uri;
+                  tokenData.metadata.website = txMetadata.website || tokenData.metadata.website;
+                  tokenData.metadata.twitter = txMetadata.twitter || tokenData.metadata.twitter;
+                  tokenData.metadata.telegram = txMetadata.telegram || tokenData.metadata.telegram;
+                  tokenData.metadata.description = txMetadata.description || tokenData.metadata.description;
+                  tokenData.image = txMetadata.image || tokenData.image;
+                }
+                
+                if (tx.transaction?.message?.accountKeys) {
+                  const signers = tx.transaction.message.accountKeys
+                    .filter(key => key.signer)
+                    .map(key => key.pubkey.toString());
+                  
+                  if (signers.length > 0) {
+                    tokenData.creator = signers[0];
+                    this.formatLog(`├─ Creator: ${tokenData.creator}`, "info");
+                  }
+                }
+
+                this.formatLog(`├─ Initial Buy Amount: ${uiAmount}`, "info");
+                this.formatLog(`├─ Transaction Fee: ${feeSol} SOL`, "info");
+                if (tokenData.metadata.website) this.formatLog(`├─ Website: ${tokenData.metadata.website}`, "info");
+                if (tokenData.metadata.twitter) this.formatLog(`├─ Twitter: ${tokenData.metadata.twitter}`, "info");
+                if (tokenData.metadata.telegram) this.formatLog(`├─ Telegram: ${tokenData.metadata.telegram}`, "info");
+                this.formatLog(`└─ Block Time: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+                
+                let isRaydiumLaunchpadToken = false;
+                if (tokenData.transaction && tokenData.transaction.blockTime) {
+                  isRaydiumLaunchpadToken = await this.verifyTokenWithLaunchpad(tokenData.mint);
+                  
+                  if (isRaydiumLaunchpadToken) {
+                    this.latestTokenData = tokenData;
+                    this.latestTransaction = tokenData;
+                    this.formatLog(`New latest token set from Raydium Launchpad: ${tokenData.name} (${tokenData.symbol})`, "success");
+                  } 
+                  else if (!this.latestTokenData || 
+                    !this.latestTokenData.transaction || 
+                    !this.latestTokenData.transaction.blockTime ||
+                    (tokenData.transaction.blockTime > this.latestTokenData.transaction.blockTime)) {
+                    
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    if (currentTime - tokenData.transaction.blockTime >= 5) {
+                      this.latestTokenData = tokenData;
+                      this.latestTransaction = tokenData;
+                      this.formatLog(`New latest token set (with delay verification): ${tokenData.name} (${tokenData.symbol})`, "info");
+                    }
+                  }
+                }
+                
+                if (isRaydiumLaunchpadToken) {
+                  const bondingCurveInfo = await getBondingCurveProgress(this.connection, balance.mint);
+                  if (bondingCurveInfo) {
+                    tokenData.bondingCurve = bondingCurveInfo;
+                    this.formatLog(`├─ Bonding Curve Progress: ${bondingCurveInfo.progress}%`, "info");
+                    this.formatLog(`├─ Current Supply: ${bondingCurveInfo.currentSupply}`, "info");
+                    this.formatLog(`├─ Total Supply: ${bondingCurveInfo.totalSupply}`, "info");
+                  }
+                }
+                
+                this.allTokensData.set(balance.mint, tokenData);
+                this.updateTokenSummary();
+              } catch (tokenError) {
+                this.formatLog(`Error processing token ${balance.mint}: ${tokenError.message}`, "error");
+              }
             }
           } catch (error) {
             this.formatLog(`Error handling WebSocket event: ${error.message}`, "error");
@@ -383,9 +561,7 @@ class TokenMonitor {
       );
       
       this.formatLog(`WebSocket subscription established with ID: ${this.subscriptionId}`, "success");
-      
-      // Initial fetch to populate existing tokens
-      await this.initialTokenFetch();
+      this.formatLog("Monitoring for new tokens in real-time (no historical data loaded)", "info");
       
     } catch (error) {
       this.isMonitoring = false;
@@ -394,29 +570,24 @@ class TokenMonitor {
     }
   }
   
-  async initialTokenFetch() {
-    try {
-      this.formatLog("Performing initial token fetch...", "info");
-      const signatures = await this.connection.getSignaturesForAddress(
-        new PublicKey(this.LETSBONK_PROGRAM_ID),
-        { limit: 20 },
-        "confirmed"
-      );
-      
-      this.formatLog(`Found ${signatures.length} recent LetsBonk transactions for initial fetch`, "info");
-      
-      // Process the most recent transactions to populate initial state
-      for (const sigInfo of signatures.slice(0, 10)) {
-        await this.processTransaction(sigInfo.signature);
+  async stopMonitoring() {
+    if (!this.isMonitoring) {
+      this.formatLog("Token monitoring is not running", "warning");
+      return;
+    }
+    
+    if (this.subscriptionId !== null) {
+      try {
+        await this.connection.removeOnLogsListener(this.subscriptionId);
+        this.formatLog(`WebSocket subscription removed: ${this.subscriptionId}`, "info");
+        this.subscriptionId = null;
+        this.isMonitoring = false;
+      } catch (error) {
+        this.formatLog(`Error stopping token monitoring: ${error.message}`, "error");
       }
-      
-      this.updateTokenSummary();
-      
-    } catch (error) {
-      this.formatLog(`Error during initial token fetch: ${error.message}`, "error");
     }
   }
-  
+
   updateTokenSummary() {
     if (this.latestTokenData && this.latestTokenData.transaction && this.latestTokenData.transaction.blockTime) {
       const recentTokens = Array.from(this.knownTokens)
@@ -450,24 +621,6 @@ class TokenMonitor {
       this.formatLog(`Latest token: ${this.latestTokenData.name} (${this.latestTokenData.symbol})`, "success");
     } else {
       this.formatLog("No tokens found in this check", "info");
-    }
-  }
-  
-  async stopMonitoring() {
-    if (!this.isMonitoring) {
-      this.formatLog("Token monitoring is not running", "warning");
-      return;
-    }
-    
-    if (this.subscriptionId !== null) {
-      try {
-        await this.connection.removeAccountChangeListener(this.subscriptionId);
-        this.formatLog(`WebSocket subscription removed: ${this.subscriptionId}`, "info");
-        this.subscriptionId = null;
-        this.isMonitoring = false;
-      } catch (error) {
-        this.formatLog(`Error stopping token monitoring: ${error.message}`, "error");
-      }
     }
   }
 }
