@@ -85,6 +85,7 @@ body {
   border-radius: 0;
   box-shadow: 0 4px 0 var(--color-background-darkest), 0 0 0 2px var(--color-background-light) inset;
   width: 100%;
+  max-width: 500px;
   margin: 0 auto;
   position: relative;
   box-sizing: border-box;
@@ -303,9 +304,8 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
   box-shadow: 2px 2px 0 var(--color-background-darkest);
   border-radius:15px;
   margin: 0 auto 6px auto;
-  height: 350px;
-  max-width: 95vw;
-  min-width: 95vw;
+  min-width: 460px;
+  max-width: 460px;
   object-fit: cover;
   display: block;
 }
