@@ -10,7 +10,6 @@ import { Buffer } from 'buffer';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '@solana/wallet-adapter-react-ui/styles.css';
-import { config } from './config';
 import floppyDisk from "./assets/load.gif"; 
 import Settings from './components/Settings';
 
@@ -130,7 +129,8 @@ const LoadingScreen = () => {
 
 const App = () => {
     const [showSettings, setShowSettings] = useState(false);
-    const endpoint = config.RPC_URL;
+    // Use a standard public endpoint as a placeholder - actual RPC calls will go through our secure proxy
+    const endpoint = "https://api.mainnet-beta.solana.com";
     const [isLoading, setIsLoading] = useState(true);
     const wallets = useMemo(() => [], []);
     
@@ -141,15 +141,6 @@ const App = () => {
         
         return () => clearTimeout(timer);
     }, []);
-
-    if (!endpoint) {
-        console.error("Solana endpoint not configured. Please check your environment variables or config.js.");
-        return <div>Error: Solana RPC endpoint not configured.</div>;
-    }
-    if (!endpoint.startsWith("http")) {
-        console.error("Invalid Solana endpoint. Must start with 'http:' or 'https:'. Endpoint:", endpoint);
-        return <div>Error: Invalid Solana RPC endpoint configured.</div>;
-    }
 
     return (
         <ConnectionProvider endpoint={endpoint}>
