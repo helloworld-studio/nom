@@ -77,17 +77,14 @@ const AppContent = ({ showSettings, setShowSettings }) => {
                             settings
                         </span>
                     </div>
-                </div>
-
-                <h1>On the run.</h1>
-
-                <div className="wallet-container">
+                    <div className="wallet-container">
                     <WalletMultiButton />
                     {publicKey && (
                         <div className="wallet-data">
                             <p>Connected: {truncateWalletAddress(publicKey.toBase58())}</p>
                         </div>
                     )}
+                </div>
                 </div>
 
                 <ViewToken

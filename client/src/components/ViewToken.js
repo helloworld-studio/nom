@@ -8,12 +8,7 @@ import BananaGang from "../assets/helloworld.png";
 import { config } from '../config';
 
 const ViewToken = ({ 
-    showSettings, 
-    setShowSettings,
-    tokenInfo, 
-    publicKey, 
-    connection, 
-    connected, 
+  
     signAllTransactions 
 }) => {
     const [latestTransaction, setLatestTransaction] = useState(null);
@@ -177,7 +172,7 @@ const ViewToken = ({
                 />
             )}
             <a 
-                href="https://github.com/helloworld-studio" 
+                href="https://github.com/helloworld-studio/nom" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 style={{ display: 'block', textAlign: 'center' }}
