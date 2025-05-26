@@ -1,6 +1,6 @@
 # Nom - Solana Token Monitor
 
-A real-time Solana token monitoring application that tracks new token launches from Raydium LetsBonk Launchpad, providing analytics and AI-powered insights.
+A real-time Solana token monitoring application that tracks new token launches from Raydium LetsBonk Launchpad, providing analytics and soon will support AI-powered insights.
 
 ## Features
 §
@@ -16,7 +16,7 @@ A real-time Solana token monitoring application that tracks new token launches f
 - Node.js (v16+)
 - npm or yarn
 - Solana RPC endpoint (QuickNode or similar)
-- LLM API key (for AI analysis)
+- LLM API key (for AI analysis coming soon)
 
 ## Environment Variables
 
@@ -33,7 +33,7 @@ PORT=5000 (optional)
 
 1. Clone the repository:
 ```
-git clone https://github.com/yourusername/nom.git
+git clone https://github.com/helloworld-studio/nom.git
 cd nom
 ```
 
@@ -92,10 +92,8 @@ npm start
 
 ### 1. Create a Web Service
 
-1. Sign up or log in to [Render.com](https://render.com)
-2. Click "New" and select "Web Service"
-3. Connect your GitHub/GitLab repository
-4. Configure your service:
+1. Set up a production environment for your preferred hosting service
+2. Configure your service:
    - **Name**: nom (or your preferred name)
    - **Environment**: Node
    - **Build Command**: `npm install && cd client && npm install && npm run build && cd ..`
@@ -109,14 +107,14 @@ Click "Advanced" and add these environment variables:
 - `RPC_URL`: Your Solana RPC endpoint (mark as secret)
 - `CORS_ORIGIN`: `*`
 - `PORT`: `10000`
-- `REACT_APP_API_URL`: The URL of your Render deployment (will look like `https://nom.onrender.com`)
+- `REACT_APP_API_URL`: The URL of your deployment
 - `REACT_APP_RPC_URL`: Same value as your backend `RPC_URL`
 
 ### 3. Deploy
 
-Click "Create Web Service" to deploy your application. Once deployment is complete, you can access your application at the URL provided by Render.
+Click "Create Web Service" to deploy your application. Once deployment is complete, you can access your application at the URL provided by your hosting service.
 
-### Important Notes for Render Deployment
+### Important Notes for Deployment
 
 - The server must bind to `0.0.0.0` to work on Render (this is already configured in the codebase)
 - The frontend and backend are deployed together as a single service
