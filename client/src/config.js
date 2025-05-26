@@ -10,7 +10,16 @@ const getApiBaseUrl = () => {
     
     if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
     
-    if (window.location.origin) return '';
+
+    if (window.location.hostname.includes('render.com') || 
+        window.location.hostname.includes('vercel.app')) {
+        return 'https://nom-ibs6.onrender.com';
+    }
+    
+
+    if (window.location.origin.includes('localhost')) {
+        return '';
+    }
     
     return "http://localhost:5000";
 };
