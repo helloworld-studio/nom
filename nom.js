@@ -12,12 +12,19 @@ const { Metaplex } = require("@metaplex-foundation/js");
 const { getBondingCurveProgress } = require('./utils/raydium');
 const TokenMonitor = require('./services/TokenMonitor');
 const Agent = require('./services/Agent');
+const RpcProxy = require('./services/RpcProxy');
 
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const rateLimit = require("express-rate-limit");
+
+const rpcLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // Limit each IP to 300 requests per windowMs
+  message: "Too many RPC requests, please try again after 15 minutes.",
+});
 
 const analyzeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 60 minutes
@@ -71,8 +78,16 @@ const connection = new Connection(RPC_ENDPOINT, {
 
 const metaplex = Metaplex.make(connection);
 
+const rpcProxy = new RpcProxy();
 
 const tokenMonitor = new TokenMonitor(connection, metaplex);
+
+// Initialize Raydium SDK for backend use
+const initSdk = async () => {
+  const { Raydium } = require('@raydium-io/raydium-sdk-v2');
+  const raydium = new Raydium({ connection });
+  return raydium;
+};
 
 tokenMonitor.monitorTokens();
 
@@ -91,7 +106,7 @@ async function retryOperation(operation, retries = MAX_RETRIES) {
   }
 }
 
-app.get("/api/latest-transaction", (req, res) => {
+app.get("/api/latest-transaction", rpcLimiter, (req, res) => {
   const latestTransaction = tokenMonitor.getLatestTransaction();
   if (!latestTransaction) {
     return res.json({ success: true, data: null });
@@ -99,7 +114,7 @@ app.get("/api/latest-transaction", (req, res) => {
   res.json({ success: true, data: latestTransaction });
 });
 
-app.get("/api/latest-token", (req, res) => {
+app.get("/api/latest-token", rpcLimiter, (req, res) => {
   const latestTokenData = tokenMonitor.getLatestTokenData();
     if (!latestTokenData) {
         return res.json({ success: true, data: null });
@@ -107,7 +122,7 @@ app.get("/api/latest-token", (req, res) => {
     res.json({ success: true, data: latestTokenData });
 });
 
-app.get("/api/latest-transaction/analytics", async (req, res) => {
+app.get("/api/latest-transaction/analytics", rpcLimiter, async (req, res) => {
   try {
     const latestTransaction = tokenMonitor.getLatestTransaction();
     if (!latestTransaction || !latestTransaction.mint) {
@@ -187,7 +202,7 @@ app.get("/api/latest-transaction/analytics", async (req, res) => {
   }
 });
 
-app.get("/api/token/analytics/:mint", async (req, res) => {
+app.get("/api/token/analytics/:mint", rpcLimiter, async (req, res) => {
   try {
     const { mint } = req.params;
     
@@ -266,6 +281,87 @@ app.post("/api/analyze", analyzeLimiter, async (req, res) => {
             error: error.message,
         });
     }
+});
+
+// RPC proxy endpoint to securely handle Solana RPC requests
+app.post("/api/rpc", rpcLimiter, async (req, res) => {
+  try {
+    const { method, params } = req.body;
+    
+    // Validate the method to prevent arbitrary method calls
+    const allowedMethods = [
+      'getAccountInfo', 'getBalance', 'getBlockHeight', 'getBlockTime',
+      'getLatestBlockhash', 'getMinimumBalanceForRentExemption', 
+      'getParsedAccountInfo', 'getParsedTokenAccountsByOwner',
+      'getRecentBlockhash', 'getSignatureStatuses', 'getSlot',
+      'getTokenAccountBalance', 'getTokenAccountsByOwner', 'getTokenSupply',
+      'getTransaction', 'getVersion', 'requestAirdrop',
+      'sendTransaction', 'confirmTransaction'
+    ];
+    
+    if (!method || !allowedMethods.includes(method)) {
+      return res.status(400).json({ 
+        error: 'Invalid or disallowed method'
+      });
+    }
+    
+    const result = await rpcProxy.makeRpcRequest(method, params);
+    res.json(result);
+  } catch (error) {
+    console.error('RPC proxy error:', error.message);
+    res.status(500).json({ 
+      error: 'RPC request failed',
+      message: error.message
+    });
+  }
+});
+
+// Raydium pool info endpoint
+app.get("/api/raydium/pool-info", rpcLimiter, async (req, res) => {
+  try {
+    const { poolId } = req.query;
+    
+    if (!poolId) {
+      return res.status(400).json({ 
+        error: 'Missing poolId parameter'
+      });
+    }
+    
+    try {
+      // Validate the poolId is a valid PublicKey
+      new PublicKey(poolId);
+    } catch (error) {
+      return res.status(400).json({ 
+        error: 'Invalid poolId format'
+      });
+    }
+    
+    tokenMonitor.formatLog(`Fetching Raydium pool info for: ${poolId}`, "info");
+    
+    try {
+      const raydium = await initSdk();
+      const poolInfo = await raydium.launchpad.getRpcPoolInfo({ 
+        poolId: new PublicKey(poolId) 
+      });
+      
+      res.json({ 
+        success: true,
+        result: poolInfo
+      });
+    } catch (error) {
+      tokenMonitor.formatLog(`Error fetching pool info: ${error.message}`, "error");
+      res.status(500).json({ 
+        error: 'Failed to fetch pool info',
+        message: error.message
+      });
+    }
+  } catch (error) {
+    console.error('Raydium pool info error:', error.message);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
 });
 
 app.get('*', (req, res) => {

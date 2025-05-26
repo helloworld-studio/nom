@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TxVersion, Curve, PlatformConfig, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
-import { PublicKey, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { NATIVE_MINT, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import BN from 'bn.js';
 import Decimal from 'decimal.js';
@@ -9,6 +9,7 @@ import { config } from '../config';
 import { initSdk } from '../config';
 import axios from 'axios';
 import { VersionedTransaction } from '@solana/web3.js';
+import rpcService from '../services/RpcService';
 
 const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
@@ -38,14 +39,15 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             if (!window.solana?.publicKey) return;
             
             try {
-                const connection = new Connection(config.RPC_URL);
                 const requiredTokenMint = new PublicKey('2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk');
                 
-                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+                const tokenAccountsResponse = await rpcService.getParsedTokenAccountsByOwner(
                     window.solana.publicKey,
-                    { programId: TOKEN_PROGRAM_ID }
+                    TOKEN_PROGRAM_ID
                 );
 
+                const tokenAccounts = tokenAccountsResponse.result;
+                
                 const requiredToken = tokenAccounts.value.find(account => 
                     account.account.data.parsed.info.mint === requiredTokenMint.toString()
                 );
@@ -73,8 +75,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
     useEffect(() => {
         const fetchBalance = async () => {
             if (window.solana?.publicKey) {
-                const connection = new Connection(config.RPC_URL);
-                const balance = await connection.getBalance(window.solana.publicKey);
+                const balance = await rpcService.getBalance(window.solana.publicKey);
                 setBalance(balance / LAMPORTS_PER_SOL);
             }
         };
@@ -108,7 +109,8 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
             const poolId = await getPoolId(raydium, mintA, mintB);
             console.log("Pool ID:", poolId.toString());
-            const poolInfo = await raydium.launchpad.getRpcPoolInfo({ poolId });
+            const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
+            const poolInfo = poolInfoResponse.result;
             console.log("Pool Info:", poolInfo);
 
             if (!poolInfo || typeof poolInfo.mintDecimalsA !== 'number') {
@@ -118,8 +120,8 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             }
              console.log("Token Decimals (decimalsA):", poolInfo.mintDecimalsA);
 
-            const connection = new Connection(config.RPC_URL);
-            const platformData = await connection.getAccountInfo(poolInfo.platformId);
+            const platformDataResponse = await rpcService.getAccountInfo(poolInfo.platformId);
+            const platformData = platformDataResponse.result;
             if (!platformData) {
                 console.error("Could not get platform account info");
                 toast.error('Could not get platform info for this token.');
@@ -244,7 +246,8 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             console.log(`Using slippage: ${slippageBasisPoints.toString()} basis points (${slippage === 'custom' ? customSlippage : slippage}%)`);
 
             const poolId = await getPoolId(raydium, mintA, mintB);
-            const poolInfo = await raydium.launchpad.getRpcPoolInfo({ poolId });
+            const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
+            const poolInfo = poolInfoResponse.result;
             
             if (!poolInfo || !poolInfo.configInfo) {
                  console.error("Failed to get poolInfo or poolInfo.configInfo in handleSwap", poolInfo);
@@ -253,7 +256,8 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                  return;
             }
 
-            const platformData = await raydium.connection.getAccountInfo(poolInfo.platformId);
+            const platformDataResponse = await rpcService.getAccountInfo(poolInfo.platformId);
+            const platformData = platformDataResponse.result;
             if (!platformData) {
                  console.error("Could not get platform account info in handleSwap");
                  toast.error('Could not get platform info for swap.');
@@ -285,16 +289,15 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             const signedTransaction = await window.solana.signTransaction(transaction);
             console.log("Transaction signed successfully");
 
-            const connection = new Connection(config.RPC_URL);
-            console.log("Sending transaction...");
-            const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+            const signature = await rpcService.sendRawTransaction(signedTransaction.serialize(), {
                 skipPreflight: false,
                 preflightCommitment: "confirmed"
             });
             console.log("Transaction sent with signature:", signature);
 
             console.log("Waiting for confirmation...");
-            const confirmation = await connection.confirmTransaction(signature, "confirmed");
+            const confirmationResponse = await rpcService.confirmTransaction(signature, "confirmed");
+            const confirmation = confirmationResponse.result;
             
             if (confirmation.value.err) {
                 throw new Error(`Transaction failed during confirmation: ${confirmation.value.err}`);
@@ -304,7 +307,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
             toast.success('Swap successful!');
             if (window.solana?.publicKey) {
-                const updatedBalance = await connection.getBalance(window.solana.publicKey);
+                const updatedBalance = await rpcService.getBalance(window.solana.publicKey);
                 setBalance(updatedBalance / LAMPORTS_PER_SOL);
             }
             onClose();
@@ -367,8 +370,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
         setIsLoading(true);
         try {
-            const connection = new Connection(config.RPC_URL);
-            
             // NOM token details
             const inputMint = 'So11111111111111111111111111111111111111112'; // SOL
             const outputMint = '2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk'; // NOM
@@ -404,7 +405,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             const signedTx = await window.solana.signTransaction(transaction);
             
             console.log('Sending transaction...');
-            const signature = await connection.sendRawTransaction(signedTx.serialize());
+            const signature = await rpcService.sendRawTransaction(signedTx.serialize());
             
             console.log('Transaction sent:', signature);
             toast.success('NOM token purchase sent!');
