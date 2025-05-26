@@ -304,8 +304,7 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
   box-shadow: 2px 2px 0 var(--color-background-darkest);
   border-radius:15px;
   margin: 0 auto 6px auto;
-  min-width: 460px;
-  max-width: 460px;
+  max-width: 95vw;
   object-fit: cover;
   display: block;
 }
