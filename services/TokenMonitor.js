@@ -322,14 +322,11 @@ class TokenMonitor {
             else if (!this.latestTokenData || 
               !this.latestTokenData.transaction || 
               !this.latestTokenData.transaction.blockTime ||
-              (tokenData.transaction.blockTime > this.latestTokenData.transaction.blockTime)) {
+              (tokenData.transaction.blockTime >= this.latestTokenData.transaction.blockTime)) {
               
-              const currentTime = Math.floor(Date.now() / 1000);
-              if (currentTime - tokenData.transaction.blockTime >= 5) {
-                this.latestTokenData = tokenData;
-                this.latestTransaction = tokenData;
-                this.formatLog(`New latest token set (with delay verification): ${tokenData.name} (${tokenData.symbol})`, "info");
-              }
+              this.latestTokenData = tokenData;
+              this.latestTransaction = tokenData;
+              this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol})`, "info");
             }
           }
           
@@ -526,14 +523,11 @@ class TokenMonitor {
                   else if (!this.latestTokenData || 
                     !this.latestTokenData.transaction || 
                     !this.latestTokenData.transaction.blockTime ||
-                    (tokenData.transaction.blockTime > this.latestTokenData.transaction.blockTime)) {
+                    (tokenData.transaction.blockTime >= this.latestTokenData.transaction.blockTime)) {
                     
-                    const currentTime = Math.floor(Date.now() / 1000);
-                    if (currentTime - tokenData.transaction.blockTime >= 5) {
-                      this.latestTokenData = tokenData;
-                      this.latestTransaction = tokenData;
-                      this.formatLog(`New latest token set (with delay verification): ${tokenData.name} (${tokenData.symbol})`, "info");
-                    }
+                    this.latestTokenData = tokenData;
+                    this.latestTransaction = tokenData;
+                    this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol})`, "info");
                   }
                 }
                 
