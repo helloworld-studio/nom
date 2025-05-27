@@ -20,17 +20,52 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const rateLimit = require("express-rate-limit");
 
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 300, 
+  message: "Too many API requests, please try again after 15 minutes.",
+  standardHeaders: true, 
+  legacyHeaders: false, 
+});
+
 const rpcLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Limit each IP to 300 requests per windowMs
+  windowMs: 15 * 60 * 1000, 
+  max: 200, 
   message: "Too many RPC requests, please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const analyzeLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 60 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: "Too many requests, please try again after 60 minutes.",
+  windowMs: 60 * 60 * 1000, 
+  max: 100, 
+  message: "Too many analysis requests, please try again after 60 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+const staticLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 1000, 
+  message: "Too many requests for static content, please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api/", apiLimiter);
+
+app.use("/api/rpc", rpcLimiter);
+app.use("/api/analyze", analyzeLimiter);
+app.use("/api/latest-transaction/analytics", analyzeLimiter);
+
+app.use(express.static(path.join(__dirname, "client/build"), { 
+  maxAge: '1d',
+  setHeaders: function (res, path) {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 app.use(
   cors({
@@ -49,19 +84,16 @@ app.use(
       }
       
       const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [];
-      if (allowedOrigins.includes(origin)) {
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
         return callback(null, true);
       }
       
-      callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+      return callback(new Error('Not allowed by CORS'));
+    }
   })
 );
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "client/build")));
 
 const RPC_ENDPOINT = process.env.RPC_URL;
 if (!RPC_ENDPOINT) {
@@ -82,7 +114,6 @@ const rpcProxy = new RpcProxy();
 
 const tokenMonitor = new TokenMonitor(connection, metaplex);
 
-// Initialize Raydium SDK for backend use
 const initSdk = async () => {
   const { Raydium } = require('@raydium-io/raydium-sdk-v2');
   const raydium = new Raydium({ connection });
@@ -106,7 +137,7 @@ async function retryOperation(operation, retries = MAX_RETRIES) {
   }
 }
 
-app.get("/api/latest-transaction", rpcLimiter, (req, res) => {
+app.get("/api/latest-transaction", (req, res) => {
   const latestTransaction = tokenMonitor.getLatestTransaction();
   if (!latestTransaction) {
     return res.json({ success: true, data: null });
@@ -114,7 +145,7 @@ app.get("/api/latest-transaction", rpcLimiter, (req, res) => {
   res.json({ success: true, data: latestTransaction });
 });
 
-app.get("/api/latest-token", rpcLimiter, (req, res) => {
+app.get("/api/latest-token", (req, res) => {
   const latestTokenData = tokenMonitor.getLatestTokenData();
     if (!latestTokenData) {
         return res.json({ success: true, data: null });
@@ -122,7 +153,7 @@ app.get("/api/latest-token", rpcLimiter, (req, res) => {
     res.json({ success: true, data: latestTokenData });
 });
 
-app.get("/api/latest-transaction/analytics", rpcLimiter, async (req, res) => {
+app.get("/api/latest-transaction/analytics", async (req, res) => {
   try {
     const latestTransaction = tokenMonitor.getLatestTransaction();
     if (!latestTransaction || !latestTransaction.mint) {
@@ -202,7 +233,7 @@ app.get("/api/latest-transaction/analytics", rpcLimiter, async (req, res) => {
   }
 });
 
-app.get("/api/token/analytics/:mint", rpcLimiter, async (req, res) => {
+app.get("/api/token/analytics/:mint", async (req, res) => {
   try {
     const { mint } = req.params;
     
@@ -269,7 +300,7 @@ async function logEarlyTransactions(mint) {
 
 const agent = new Agent();
 
-app.post("/api/analyze", analyzeLimiter, async (req, res) => {
+app.post("/api/analyze", async (req, res) => {
     try {
         const { transaction } = req.body;
         const analysis = await agent.analyzeTransaction(transaction);
@@ -283,12 +314,10 @@ app.post("/api/analyze", analyzeLimiter, async (req, res) => {
     }
 });
 
-// RPC proxy endpoint to securely handle Solana RPC requests
-app.post("/api/rpc", rpcLimiter, async (req, res) => {
+app.post("/api/rpc", async (req, res) => {
   try {
     const { method, params } = req.body;
     
-    // Validate the method to prevent arbitrary method calls
     const allowedMethods = [
       'getAccountInfo', 'getBalance', 'getBlockHeight', 'getBlockTime',
       'getLatestBlockhash', 'getMinimumBalanceForRentExemption', 
@@ -316,8 +345,7 @@ app.post("/api/rpc", rpcLimiter, async (req, res) => {
   }
 });
 
-// Raydium pool info endpoint
-app.get("/api/raydium/pool-info", rpcLimiter, async (req, res) => {
+app.get("/api/raydium/pool-info", async (req, res) => {
   try {
     const { poolId } = req.query;
     
@@ -328,7 +356,6 @@ app.get("/api/raydium/pool-info", rpcLimiter, async (req, res) => {
     }
     
     try {
-      // Validate the poolId is a valid PublicKey
       new PublicKey(poolId);
     } catch (error) {
       return res.status(400).json({ 
@@ -368,7 +395,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 
-//this is a render.com specific requirement
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });

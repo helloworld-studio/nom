@@ -5,7 +5,6 @@ import { NATIVE_MINT, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import BN from 'bn.js';
 import Decimal from 'decimal.js';
 import { toast } from 'react-toastify';
-import { config } from '../config';
 import { initSdk } from '../config';
 import axios from 'axios';
 import { VersionedTransaction } from '@solana/web3.js';

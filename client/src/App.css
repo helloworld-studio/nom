@@ -304,6 +304,8 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
   box-shadow: 2px 2px 0 var(--color-background-darkest);
   border-radius:15px;
   margin: 0 auto 6px auto;
+  width: 450px;
+  height: 450px;
   max-width: 95vw;
   object-fit: cover;
   display: block;
@@ -329,6 +331,13 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--color-background-light) var(--color-background-dark);
+}
+
+.transaction-info-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 90vw;
+  margin-bottom: 10px;
 }
 
 .transaction-details .key {
