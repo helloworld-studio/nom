@@ -179,7 +179,6 @@ body {
   width: 100%;
 }
 
-
 .wallet-data p {
   text-align: left;
   margin: 2px 4px; 
@@ -1237,4 +1236,73 @@ button:disabled, .wallet-button:disabled, .swap-button:disabled, .swap-execute-b
 .quick-buy-button {
     width: 100%;
     margin-top: 10px;
+}
+
+.wallet-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.verified-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: #4CAF50;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 5px 0;
+}
+
+.verify-button {
+  background-color: #FFA500;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin: 5px 0;
+  transition: background-color 0.3s;
+}
+
+.verify-button:hover {
+  background-color: #FF8C00;
+}
+
+.disconnect-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin: 5px 0;
+  transition: background-color 0.3s;
+}
+
+.disconnect-button:hover {
+  background-color: #d32f2f;
+}
+
+.balance {
+  font-weight: bold;
+  color: #4CAF50;
+  margin: 5px 0;
+}
+
+.error-message {
+  background-color: #f44336;
+  color: white;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
 }
