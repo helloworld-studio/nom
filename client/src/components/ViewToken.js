@@ -62,6 +62,7 @@ const ViewToken = ({
                             <div className="token-logo-placeholder">?</div>
                         )}
 
+                        <div className="transaction-info-container">
                         <p>
                             <span className="key">Name:</span>
                             <span className="value">{latestTransaction.name || 'Unknown'}</span>
@@ -128,6 +129,7 @@ const ViewToken = ({
                                 {latestTransaction.solAmount?.toFixed(6) || 'N/A'} SOL
                             </span>
                         </p>
+                        </div>
                         <div className="button-wrapper">
                             <button className="chart-button" onClick={handleViewChart}>View Chart</button>
                             <button
