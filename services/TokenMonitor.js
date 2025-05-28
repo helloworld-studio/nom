@@ -13,6 +13,7 @@ class TokenMonitor {
     this.processedTransactions = new Set();
     this.knownTokens = new Set();
     this.allTokensData = new Map();
+    this.metadataCache = new Map();
     this.latestTransaction = null;
     this.latestTokenData = null;
     this.subscriptionId = null;
@@ -31,19 +32,6 @@ class TokenMonitor {
     const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
     console.log(logMessage);
     return logMessage;
-  }
-
-  async isTokenAddress(address) {
-    try {
-      await this.connection.getTokenSupply(new PublicKey(address));
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  isLetsBonkToken(mintAddress) {
-    return mintAddress.toLowerCase().endsWith("bonk");
   }
 
   async extractMetadataFromTransaction(tx) {
@@ -96,21 +84,35 @@ class TokenMonitor {
   }
 
   async verifyTokenWithLaunchpad(mintAddress) {
+    const cacheKey = `launchpad_${mintAddress}`;
+    if (this.metadataCache.has(cacheKey)) {
+      return this.metadataCache.get(cacheKey);
+    }
+
     try {
       const tokenInfo = await this.connection.getParsedAccountInfo(new PublicKey(mintAddress));
       
-      if (tokenInfo?.value?.owner?.toString() === this.RAYDIUM_LAUNCHPAD_PROGRAM_ID) {
+      const isLaunchpad = tokenInfo?.value?.owner?.toString() === this.RAYDIUM_LAUNCHPAD_PROGRAM_ID;
+      
+      this.metadataCache.set(cacheKey, isLaunchpad);
+      
+      if (isLaunchpad) {
         this.formatLog(`Verified ${mintAddress} is on Raydium Launchpad`, "info");
         return true;
       }
       return false;
     } catch (error) {
       this.formatLog(`Error verifying token with Raydium: ${error.message}`, "error");
+      this.metadataCache.set(cacheKey, false);
       return false;
     }
   }
 
   async getTokenMetadata(mintAddress) {
+    if (this.metadataCache.has(mintAddress)) {
+      return this.metadataCache.get(mintAddress);
+    }
+
     return await this.retryOperation(async () => {
         try {
             const mintPublicKey = new PublicKey(mintAddress);
@@ -156,10 +158,11 @@ class TokenMonitor {
                 this.formatLog(`No metadata URI found for ${mintAddress}`, "info");
             }
 
+            this.metadataCache.set(mintAddress, metadata);
             return metadata;
         } catch (error) {
             this.formatLog(`Failed to fetch primary metadata for ${mintAddress}: ${error.message}`, "error");
-            return {
+            const fallbackMetadata = {
                 address: mintAddress,
                 name: "Unknown",
                 symbol: "Unknown",
@@ -167,6 +170,8 @@ class TokenMonitor {
                 image: null,
                 metadata: {}
             };
+            this.metadataCache.set(mintAddress, fallbackMetadata);
+            return fallbackMetadata;
         }
     });
   }
@@ -292,6 +297,44 @@ class TokenMonitor {
     }
   }
 
+  isTokenCreationInstruction(logs) {
+    const creationPatterns = [
+      "Program log: create",
+      "Program log: Create",
+      "Program log: mint",
+      "Program log: Mint",
+      "Program log: initialize",
+      "Program log: Initialize"
+    ];
+    
+    return logs.logs.some(log => 
+      creationPatterns.some(pattern => log.includes(pattern))
+    );
+  }
+
+  async isNewlyCreatedToken(mintAddress) {
+    try {
+      const signatures = await this.connection.getSignaturesForAddress(
+        new PublicKey(mintAddress),
+        { limit: 5 },
+        'confirmed'
+      );
+      
+      if (signatures.length <= 3) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        const oldestTx = signatures[signatures.length - 1];
+        const tokenAge = currentTime - (oldestTx?.blockTime || 0);
+        
+        return tokenAge < (10 * 60);
+      }
+      
+      return false;
+    } catch (error) {
+      this.formatLog(`Error checking token age for ${mintAddress}: ${error.message}`, "warning");
+      return false;
+    }
+  }
+
   async monitorTokens() {
     if (this.isMonitoring) {
       this.formatLog("Token monitoring is already running", "warning");
@@ -300,7 +343,7 @@ class TokenMonitor {
 
     try {
       this.isMonitoring = true;
-      this.formatLog("Starting token monitoring via WebSocket (optimized for RPC limits)...", "info");
+      this.formatLog("Starting optimized token creation monitoring...", "info");
       this.formatLog(`Monitoring start time: ${new Date(this.startTime * 1000).toLocaleString()}`, "info");
 
       this.subscriptionId = this.connection.onLogs(
@@ -311,39 +354,32 @@ class TokenMonitor {
               return;
             }
             
+            if (!this.isTokenCreationInstruction(logs)) {
+              return;
+            }
+            
             this.processedTransactions.add(logs.signature);
-            
-            this.formatLog(`WebSocket event received: ${logs.signature}`, "info");
-            
-            const txInfo = await this.connection.getTransaction(logs.signature, {
-              maxSupportedTransactionVersion: 0,
-              commitment: "confirmed"
-            });
-            
-            if (!txInfo || !txInfo.blockTime) {
-              return;
-            }
-            
-            if (txInfo.blockTime < this.startTime) {
-              return;
-            }
-            
-            const mightBeTokenCreation = this.mightContainTokenCreation(txInfo);
-            if (!mightBeTokenCreation) {
-              return;
-            }
+            this.formatLog(`🔍 Potential token creation detected: ${logs.signature}`, "info");
             
             const tx = await this.connection.getParsedTransaction(logs.signature, {
               maxSupportedTransactionVersion: 0,
               commitment: "confirmed"
             });
             
-            if (!tx || !tx.meta || !tx.meta.postTokenBalances || tx.meta.postTokenBalances.length === 0) {
+            if (!tx || !tx.blockTime) {
               return;
             }
             
-            let foundNewToken = false;
+            if (tx.blockTime < this.startTime) {
+              this.formatLog(`⏰ Skipping old transaction from ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+              return;
+            }
             
+            if (!tx.meta || !tx.meta.postTokenBalances || tx.meta.postTokenBalances.length === 0) {
+              return;
+            }
+            
+            const newTokens = [];
             for (const balance of tx.meta.postTokenBalances) {
               if (!balance.mint) continue;
               
@@ -355,27 +391,31 @@ class TokenMonitor {
                 continue;
               }
               
-              if (!this.isLetsBonkToken(balance.mint)) {
-                continue;
-              }
-              
-              try {
-                const isToken = await this.isTokenAddress(balance.mint);
-                if (!isToken) continue;
-                
-                this.formatLog(`Found new LetsBonk token:`, "success");
-                this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
-                this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
-                
-                await this.processTokenCreation(logs.signature, tx, balance.mint);
-                foundNewToken = true;
-              } catch (tokenError) {
-                this.formatLog(`Error processing token ${balance.mint}: ${tokenError.message}`, "error");
+              const isNew = await this.isNewlyCreatedToken(balance.mint);
+              if (isNew) {
+                newTokens.push(balance.mint);
               }
             }
             
-            if (!foundNewToken) {
-              this.formatLog(`No new tokens found in transaction: ${logs.signature}`, "info");
+            if (newTokens.length === 0) {
+              this.formatLog(`📝 Transaction processed but no new tokens found`, "info");
+              return;
+            }
+            
+            for (const mintAddress of newTokens) {
+              try {
+                this.knownTokens.add(mintAddress);
+                
+                this.formatLog(`🎉 NEW TOKEN CREATED!`, "success");
+                this.formatLog(`├─ Mint Address: ${mintAddress}`, "info");
+                this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
+                this.formatLog(`├─ Created: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+                
+                await this.processTokenCreation(logs.signature, tx, mintAddress);
+                
+              } catch (tokenError) {
+                this.formatLog(`Error processing new token ${mintAddress}: ${tokenError.message}`, "error");
+              }
             }
             
           } catch (error) {
@@ -385,32 +425,13 @@ class TokenMonitor {
         "confirmed"
       );
 
-      this.formatLog("Token monitoring started successfully", "success");
+      this.formatLog("✅ Optimized token monitoring started successfully", "success");
+      this.formatLog("🎯 Now listening ONLY for token creation events", "info");
     } catch (error) {
       this.isMonitoring = false;
       this.formatLog(`Error starting token monitoring: ${error.message}`, "error");
       throw error;
     }
-  }
-
-  mightContainTokenCreation(transaction) {
-    if (!transaction || !transaction.transaction || !transaction.transaction.message) {
-      return false;
-    }
-    
-    const accountKeys = transaction.transaction.message.accountKeys;
-    
-    if (!accountKeys) {
-      return false;
-    }
-    
-    const programIds = Array.isArray(accountKeys) 
-      ? accountKeys.map(key => typeof key === 'string' ? key : (key.pubkey ? key.pubkey.toString() : key.toString()))
-      : [];
-    
-    const hasTokenProgram = programIds.includes("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-    
-    return hasTokenProgram;
   }
 
   async stopMonitoring() {
@@ -429,6 +450,19 @@ class TokenMonitor {
         this.formatLog(`Error stopping token monitoring: ${error.message}`, "error");
       }
     }
+  }
+
+  clearCache() {
+    this.metadataCache.clear();
+    this.formatLog("Metadata cache cleared", "info");
+  }
+
+  getCacheStats() {
+    return {
+      metadataCacheSize: this.metadataCache.size,
+      knownTokensSize: this.knownTokens.size,
+      processedTransactionsSize: this.processedTransactions.size
+    };
   }
 
   updateTokenSummary() {
