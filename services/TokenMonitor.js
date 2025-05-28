@@ -196,7 +196,7 @@ class TokenMonitor {
     }
   }
 
-  async processTokenCreation(signature, tx, mintAddress, platform = "Unknown") {
+  async processTokenCreation(signature, tx, mintAddress, platform = "LetsBonk") {
     try {
       // Add check to prevent duplicate processing
       if (this.allTokensData.has(mintAddress)) {
@@ -204,10 +204,7 @@ class TokenMonitor {
         return;
       }
       
-      const fetchedMetadata = await this.getTokenMetadata(mintAddress);
-      this.formatLog(`├─ Name: ${fetchedMetadata.name}`, "info");
-      this.formatLog(`├─ Symbol: ${fetchedMetadata.symbol}`, "info");
-      
+      // Get basic token info from transaction
       let uiAmount = 0;
       for (const balance of tx.meta.postTokenBalances) {
         if (balance.mint === mintAddress) {
@@ -222,6 +219,9 @@ class TokenMonitor {
       
       const feeSol = tx.meta.fee ? tx.meta.fee / LAMPORTS_PER_SOL : 0;
       
+      // Get metadata (this is the only RPC call we'll make)
+      const fetchedMetadata = await this.getTokenMetadata(mintAddress);
+      
       const tokenData = {
         id: signature,
         mint: mintAddress,
@@ -230,7 +230,6 @@ class TokenMonitor {
         platform: platform,
         initialBuy: uiAmount,
         solAmount: feeSol,
-        marketCapSol: 0,
         uri: fetchedMetadata.uri,
         image: fetchedMetadata.image,
         metadata: fetchedMetadata.metadata || {},
@@ -241,6 +240,7 @@ class TokenMonitor {
         }
       };
 
+      // Try to get additional metadata from transaction itself (no RPC)
       const txMetadata = await this.extractMetadataFromTransaction(tx);
       if (txMetadata) {
         tokenData.name = txMetadata.name || tokenData.name;
@@ -253,6 +253,7 @@ class TokenMonitor {
         tokenData.image = txMetadata.image || tokenData.image;
       }
       
+      // Get creator from transaction
       if (tx.transaction?.message?.accountKeys) {
         const signers = tx.transaction.message.accountKeys
           .filter(key => key.signer)
@@ -264,6 +265,8 @@ class TokenMonitor {
         }
       }
 
+      this.formatLog(`├─ Name: ${tokenData.name}`, "info");
+      this.formatLog(`├─ Symbol: ${tokenData.symbol}`, "info");
       this.formatLog(`├─ Initial Buy Amount: ${uiAmount}`, "info");
       this.formatLog(`├─ Transaction Fee: ${feeSol} SOL`, "info");
       if (tokenData.metadata.website) this.formatLog(`├─ Website: ${tokenData.metadata.website}`, "info");
@@ -271,32 +274,10 @@ class TokenMonitor {
       if (tokenData.metadata.telegram) this.formatLog(`├─ Telegram: ${tokenData.metadata.telegram}`, "info");
       this.formatLog(`└─ Block Time: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
       
-      if (tokenData.transaction && tokenData.transaction.blockTime) {
-        const isRaydiumLaunchpadToken = await this.verifyTokenWithLaunchpad(tokenData.mint);
-        
-        if (isRaydiumLaunchpadToken) {
-          this.latestTokenData = tokenData;
-          this.latestTransaction = tokenData;
-          this.formatLog(`New latest token set from Raydium Launchpad: ${tokenData.name} (${tokenData.symbol})`, "success");
-        } 
-        else if (!this.latestTokenData || 
-          !this.latestTokenData.transaction || 
-          !this.latestTokenData.transaction.blockTime ||
-          (tokenData.transaction.blockTime >= this.latestTokenData.transaction.blockTime)) {
-          
-          this.latestTokenData = tokenData;
-          this.latestTransaction = tokenData;
-          this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol})`, "info");
-        }
-      }
-      
-      const bondingCurveInfo = await getBondingCurveProgress(this.connection, mintAddress);
-      if (bondingCurveInfo) {
-        tokenData.bondingCurve = bondingCurveInfo;
-        this.formatLog(`├─ Bonding Curve Progress: ${bondingCurveInfo.progress}%`, "info");
-        this.formatLog(`├─ Current Supply: ${bondingCurveInfo.currentSupply}`, "info");
-        this.formatLog(`├─ Total Supply: ${bondingCurveInfo.totalSupply}`, "info");
-      }
+      // Set as latest token
+      this.latestTokenData = tokenData;
+      this.latestTransaction = tokenData;
+      this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol})`, "success");
       
       this.allTokensData.set(mintAddress, tokenData);
     } catch (tokenError) {
@@ -304,107 +285,11 @@ class TokenMonitor {
     }
   }
 
-  isTokenCreationInstruction(logs) {
-    // More comprehensive patterns for LetsBonk token creation
-    const creationPatterns = [
-      // Standard patterns
-      "Program log: create",
-      "Program log: Create", 
-      "Program log: mint",
-      "Program log: Mint",
-      "Program log: initialize",
-      "Program log: Initialize",
-      
-      // LetsBonk specific patterns (more inclusive)
-      "create",
-      "Create",
-      "mint",
-      "Mint", 
-      "new",
-      "New",
-      "launch",
-      "Launch",
-      "deploy",
-      "Deploy",
-      "token",
-      "Token",
-      
-      // Instruction-based patterns
-      "Instruction: Create",
-      "Instruction: Mint",
-      "Instruction: Initialize",
-      
-      // Account creation patterns
-      "CreateAccount",
-      "InitializeMint",
-      "CreateMint"
-    ];
-    
-    // Also check for the absence of common non-creation patterns
-    const nonCreationPatterns = [
-      "swap",
-      "Swap", 
-      "trade",
-      "Trade",
-      "buy",
-      "Buy",
-      "sell", 
-      "Sell",
-      "transfer",
-      "Transfer"
-    ];
-    
-    const hasCreationPattern = logs.logs.some(log => 
-      creationPatterns.some(pattern => log.toLowerCase().includes(pattern.toLowerCase()))
-    );
-    
-    const hasNonCreationPattern = logs.logs.some(log => 
-      nonCreationPatterns.some(pattern => log.toLowerCase().includes(pattern.toLowerCase()))
-    );
-    
-    // If it has creation patterns and no obvious non-creation patterns, consider it
-    return hasCreationPattern && !hasNonCreationPattern;
-  }
-
-  // Add a fallback method that's even more permissive
-  isLikelyTokenTransaction(logs) {
-    // If our main filter misses something, this catches more broadly
-    // Look for any transaction that might involve token operations
-    const tokenRelatedPatterns = [
-      "token",
-      "Token",
-      "mint", 
-      "Mint",
-      "account",
-      "Account"
-    ];
-    
+  // Simplified filtering - only look for the actual token creation instruction
+  isRaydiumTokenCreation(logs) {
     return logs.logs.some(log => 
-      tokenRelatedPatterns.some(pattern => log.includes(pattern))
+      log.includes("Program log: Instruction: Initialize")
     );
-  }
-
-  async isNewlyCreatedToken(mintAddress) {
-    try {
-      const signatures = await this.connection.getSignaturesForAddress(
-        new PublicKey(mintAddress),
-        { limit: 5 },
-        'confirmed'
-      );
-      
-      if (signatures.length <= 3) {
-        const currentTime = Math.floor(Date.now() / 1000);
-        const oldestTx = signatures[signatures.length - 1];
-        const tokenAge = currentTime - (oldestTx?.blockTime || 0);
-        
-        return tokenAge < (10 * 60);
-      }
-      
-      return false;
-    } catch (error) {
-      this.formatLog(`Error checking token age for ${mintAddress}: ${error.message}`, "warning");
-      return false;
-    }
   }
 
   // Simplified platform detection - since we're only monitoring Raydium Launchpad
@@ -421,117 +306,73 @@ class TokenMonitor {
     try {
       this.isMonitoring = true;
       this.formatLog("Starting Raydium Launchpad token monitoring...", "info");
-      this.formatLog("🎯 Monitoring: LetsBonk and other Raydium Launchpad platforms", "info");
+      this.formatLog("🎯 Monitoring: Raydium Launchpad tokens", "info");
       this.formatLog(`Monitoring start time: ${new Date(this.startTime * 1000).toLocaleString()}`, "info");
 
-      // Only monitor Raydium Launchpad (the underlying infrastructure)
       this.subscriptionId = this.connection.onLogs(
         new PublicKey(this.RAYDIUM_LAUNCHPAD_PROGRAM_ID),
         async (logs, context) => {
           try {
+            // Early exit if already processed
             if (this.processedTransactions.has(logs.signature)) {
               return;
             }
             
-            // Check if this is a token creation
+            // Early exit if not a token creation
             if (!this.isRaydiumTokenCreation(logs)) {
               return;
             }
             
             this.processedTransactions.add(logs.signature);
-            this.formatLog(`🔍 Raydium Launchpad token creation detected: ${logs.signature}`, "info");
             
             const tx = await this.connection.getParsedTransaction(logs.signature, {
               maxSupportedTransactionVersion: 0,
               commitment: "confirmed"
             });
             
-            if (!tx || !tx.blockTime) {
+            if (!tx || !tx.blockTime || tx.blockTime < this.startTime) {
               return;
             }
             
-            if (tx.blockTime < this.startTime) {
-              this.formatLog(`⏰ Skipping old transaction from ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+            if (!tx.meta?.postTokenBalances?.length) {
               return;
             }
             
-            if (!tx.meta || !tx.meta.postTokenBalances || tx.meta.postTokenBalances.length === 0) {
-              return;
-            }
-            
-            const newTokens = [];
+            // Find new tokens - simplified
             for (const balance of tx.meta.postTokenBalances) {
-              if (!balance.mint) continue;
-              
-              if (balance.mint === "So11111111111111111111111111111111111111112") {
+              if (!balance.mint || 
+                  balance.mint === "So11111111111111111111111111111111111111112" ||
+                  this.knownTokens.has(balance.mint)) {
                 continue;
               }
               
-              if (this.knownTokens.has(balance.mint)) {
-                continue;
-              }
+              // Add to known tokens immediately to prevent duplicates
+              this.knownTokens.add(balance.mint);
               
-              const isNew = await this.isNewlyCreatedToken(balance.mint);
-              if (isNew) {
-                newTokens.push(balance.mint);
-              }
-            }
-            
-            if (newTokens.length === 0) {
-              this.formatLog(`📝 Raydium transaction processed but no new tokens found`, "info");
-              return;
-            }
-            
-            for (const mintAddress of newTokens) {
-              try {
-                this.knownTokens.add(mintAddress);
-                
-                // Identify which platform created this token
-                const platform = await this.identifyTokenPlatform(tx, mintAddress);
-                
-                this.formatLog(`🎉 NEW TOKEN CREATED!`, "success");
-                this.formatLog(`├─ Platform: ${platform}`, "info");
-                this.formatLog(`├─ Mint Address: ${mintAddress}`, "info");
-                this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
-                this.formatLog(`├─ Created: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
-                
-                await this.processTokenCreation(logs.signature, tx, mintAddress, platform);
-                
-              } catch (tokenError) {
-                this.formatLog(`Error processing new token ${mintAddress}: ${tokenError.message}`, "error");
-              }
+              this.formatLog(`🎉 NEW TOKEN CREATED!`, "success");
+              this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
+              this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
+              this.formatLog(`├─ Created: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
+              
+              await this.processTokenCreation(logs.signature, tx, balance.mint, "LetsBonk");
+              
+              // Process only the first new token per transaction to avoid spam
+              break;
             }
             
           } catch (error) {
-            this.formatLog(`Error processing Raydium WebSocket event: ${error.message}`, "error");
+            this.formatLog(`Error processing transaction: ${error.message}`, "error");
           }
         },
         "confirmed"
       );
 
-      this.formatLog("✅ Raydium Launchpad monitoring started successfully", "success");
-      this.formatLog("🔍 Monitoring: Raydium Launchpad (LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj)", "info");
-      this.formatLog("🎯 Will identify: LetsBonk and other Raydium-based platforms", "info");
+      this.formatLog("✅ Token monitoring started successfully", "success");
     } catch (error) {
       this.isMonitoring = false;
       this.formatLog(`Error starting token monitoring: ${error.message}`, "error");
       throw error;
     }
-  }
-
-  // Specific filtering for Raydium Launchpad
-  isRaydiumTokenCreation(logs) {
-    const raydiumCreationPatterns = [
-      "Program log: Instruction: Initialize",
-      "Instruction: Initialize", 
-      "Program log: IX: Create Metadata Accounts",
-      "Program log: Instruction: InitializeMint",
-      "Program log: Instruction: MintTo"
-    ];
-    
-    return logs.logs.some(log => 
-      raydiumCreationPatterns.some(pattern => log.includes(pattern))
-    );
   }
 
   async stopMonitoring() {
