@@ -291,9 +291,13 @@ class TokenMonitor {
       this.latestTransaction = tokenData;
       this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol}) - ${actualPlatform}`, "success");
       
+      // Add line break after each token
+      console.log(''); // Empty line for separation
+      
       this.allTokensData.set(mintAddress, tokenData);
     } catch (tokenError) {
       this.formatLog(`Error processing token ${mintAddress}: ${tokenError.message}`, "error");
+      console.log(''); // Empty line after errors too
     }
   }
 
