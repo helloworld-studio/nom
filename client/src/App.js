@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import "./App.css";
 import logo from "./assets/nom.png";
+import BananaGang from "./assets/helloworld.png";
+
 import ViewToken from "./components/ViewToken";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -119,40 +121,47 @@ const AppContent = ({ showSettings, setShowSettings }) => {
         <div className="App">
             {error && <div className="error-message">{error}</div>}
 
-            <div className="module-container">
-                <div className="app-header">
-                    <div className="logo-settings-container">
-                        <img src={logo} alt="nom" className="logo" />
-                        <span 
-                            className="material-icons settings-icon" 
-                            onClick={() => setShowSettings(true)}
-                        >
-                            settings
-                        </span>
-                    </div>
-                    <div className="wallet-container">
-                        <WalletMultiButton />
-                        {publicKey && (
-                            <div className="wallet-data">
-                                <p>Connected: {truncateWalletAddress(publicKey.toBase58())}</p>
-                                {isVerified ? (
-                                    <span className="verified-badge" title="Wallet verified">✓</span>
-                                ) : (
-                                    <button 
-                                        className="verify-button" 
-                                        onClick={verifyWalletOwnership}
-                                        title="Verify wallet ownership"
-                                    >
-                                        Verify
-                                    </button>
-                                )}
-                                {walletBalance !== null && (
-                                    <p className="balance">{walletBalance.toFixed(4)} SOL</p>
+                        <div className="header-container">
+                            <img src={logo} alt="nom" className="logo" />
+                            <div className="wallet-container">
+                                <WalletMultiButton />
+                                {publicKey && (
+                                    <div className="wallet-info">
+                                        <p>{truncateWalletAddress(publicKey.toBase58())}</p>
+                                        {isVerified ? (
+                                            <span className="verified-badge" title="Wallet verified">✓</span>
+                                        ) : (
+                                            <button 
+                                                className="verify-button" 
+                                                onClick={verifyWalletOwnership}
+                                                title="Verify wallet ownership"
+                                            >
+                                                Verify
+                                            </button>
+                                        )}
+                                        {walletBalance !== null && (
+                                            <p className="balance">{walletBalance.toFixed(4)} SOL</p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                </div>
+                            <span 
+                                className="material-icons settings-icon" 
+                                onClick={() => setShowSettings(true)}
+                            >
+                                settings
+                            </span>
+                            <a 
+                                href="https://github.com/helloworld-studio/nom" 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                style={{ display: 'block', textAlign: 'center' }}
+                            >
+                                <img src={BananaGang} alt="github repo" className="banana-gang" />
+                            </a>
+                        </div>
+                   
+             
 
                 <ViewToken
                     publicKey={publicKey}
@@ -163,7 +172,7 @@ const AppContent = ({ showSettings, setShowSettings }) => {
                     setShowSettings={setShowSettings}
                 />
             </div>
-        </div>
+       
     );
 };
 
@@ -204,7 +213,6 @@ const App = () => {
     const validRpcUrl = rpcUrl && rpcUrl.startsWith('http') 
     ? rpcUrl 
     : `https://${rpcUrl}`;
-
     
     // Initialize wallet adapters
     const wallets = useMemo(() => [
@@ -220,8 +228,6 @@ const App = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    
-
     return (
         <ConnectionProvider endpoint={validRpcUrl}>
             <WalletProvider wallets={wallets} autoConnect>
@@ -229,7 +235,10 @@ const App = () => {
                     {isLoading ? (
                         <LoadingScreen />
                     ) : (
-                        <AppContent showSettings={showSettings} setShowSettings={setShowSettings} />
+                        <AppContent 
+                            showSettings={showSettings} 
+                            setShowSettings={setShowSettings}
+                        />
                     )}
                     
                     <ToastContainer

@@ -287,8 +287,8 @@ class TokenMonitor {
       this.formatLog(`└─ Block Time: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
       
       // Set as latest token
-      this.latestTokenData = tokenData;
-      this.latestTransaction = tokenData;
+          this.latestTokenData = tokenData;
+          this.latestTransaction = tokenData;
       this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol}) - ${actualPlatform}`, "success");
       
       // Add line break after each token
@@ -368,14 +368,14 @@ class TokenMonitor {
               // Check if it's a LetsBonk token for enhanced logging
               const isLetsBonk = this.isLetsBonkToken(balance.mint);
               const tokenType = isLetsBonk ? "LetsBonk" : "Other Raydium";
-              
+                
               this.formatLog(`🎉 NEW ${tokenType.toUpperCase()} TOKEN CREATED!`, "success");
-              this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
-              this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
+                this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
+                this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
               this.formatLog(`├─ Created: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
-              
-              await this.processTokenCreation(logs.signature, tx, balance.mint);
-              
+                
+                await this.processTokenCreation(logs.signature, tx, balance.mint);
+            
               // Process only the first new token per transaction to avoid spam
               break;
             }

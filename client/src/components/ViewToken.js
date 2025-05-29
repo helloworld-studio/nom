@@ -4,8 +4,8 @@ import "../App.css";
 import axios from "axios";
 import SwapComponent from './SwapComponent';
 import TokenInfo from './TokenInfo';
-import BananaGang from "../assets/helloworld.png";
 import { config } from '../config';
+import SUMMA from '../assets/sus.png';
 
 const ViewToken = ({ 
   
@@ -48,28 +48,31 @@ const ViewToken = ({
             <div className="transaction-container">
                 {latestTransaction ? (
                     <div className="transaction-details">
-                        {latestTransaction.image ? (
-                            <img
-                                src={latestTransaction.image}
-                                alt={`${latestTransaction.name || 'Token'} logo`}
-                                className="token-logo"
-                                onError={(e) => {
-                                    e.target.onerror = null;
-                                    e.target.style.display = 'none';
-                                }}
-                            />
-                        ) : (
-                            <div className="token-logo-placeholder">?</div>
-                        )}
-
+                        <div className="token-header-container">
+                            {latestTransaction.image ? (
+                                <img
+                                    src={latestTransaction.image}
+                                    alt={`${latestTransaction.name || 'Token'} logo`}
+                                    className="token-logo"
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.style.display = 'none';
+                                    }}
+                                />
+                            ) : (
+                                <img
+                                    src={SUMMA}
+                                    alt="Token logo placeholder"
+                                    className="token-logo"
+                                />
+                            )}
+                           
+                        </div>
+                        <div className="token-info">
+                                <h2 className="token-name">{latestTransaction.name || 'Unknown'}</h2>
+                                <p className="token-symbol">{latestTransaction.symbol || '???'}</p>
+                            </div>
                         <div className="transaction-info-container">
-                        <p>
-                            <span className="key">Name:</span>
-                            <span className="value">{latestTransaction.name || 'Unknown'}</span>
-                            {' '}
-                            (<span className="key">Symbol:</span>
-                            <span className="value">{latestTransaction.symbol || '???'}</span>)
-                        </p>
                         <p>
                             <span className="key">Mint:</span>
                             <a 
@@ -119,27 +122,29 @@ const ViewToken = ({
                                 </a>
                             </p>
                         )}
-                        <p>
-                            <span className="key">Initial Buy:</span>
-                            <span className="value2">{latestTransaction.initialBuy?.toLocaleString() || 'N/A'}</span>
-                        </p>
-                        <p>
-                            <span className="key">SOL Amount:</span>
-                            <span className="value sol-amount">
-                                {latestTransaction.solAmount?.toFixed(6) || 'N/A'} SOL
-                            </span>
-                        </p>
+                        <div className="transaction-row">
+                            <p>
+                                <span className="key">Initial Buy:</span>
+                                <span className="value2">{latestTransaction.initialBuy?.toLocaleString() || ' N/A'}</span>
+                            </p>
+                            <p>
+                                <span className="key">Sol Amount:</span>
+                                <span className="value sol-amount">
+                                    {latestTransaction.solAmount?.toFixed(6) || 'N/A'} SOL
+                                </span>
+                            </p>
+                        </div>
                         </div>
                         <div className="button-wrapper">
-                            <button className="chart-button" onClick={handleViewChart}>View Chart</button>
+                            <button className="button" onClick={handleViewChart}>View Chart</button>
                             <button
-                                className="info-button"
+                                className="button"
                                 onClick={() => setShowInfo(true)}
                             >
                                 Info
                             </button>
                             <button
-                                className="swap-button"
+                                className="button"
                                 onClick={handleTransaction}
                                 disabled={!latestTransaction?.mint || !window.solana?.isPhantom}
                             >
@@ -173,14 +178,7 @@ const ViewToken = ({
                     }}
                 />
             )}
-            <a 
-                href="https://github.com/helloworld-studio/nom" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                style={{ display: 'block', textAlign: 'center' }}
-            >
-                <img src={BananaGang} alt="Banana Gang github" className="banana-gang" />
-            </a>
+           
         </div>
     );
 };
