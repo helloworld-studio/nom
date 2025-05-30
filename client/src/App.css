@@ -261,18 +261,539 @@ button:hover {
   z-index: 1000;
 }
 
-.swap-box, .token-info-box {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #FFFFFF;
-  border-radius: 12px 12px 0 0;
+
+.token-info-box {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 24rem;
+  border-radius: 12px;
   padding: 32px 16px;
+  margin: 0 auto;
+}
+
+.token-info-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 1rem;
+  text-align: center;
+  letter-spacing: -0.025em;
+}
+
+.info-card {
+  background:         rgba(118, 118, 128, 0.12);
+  border-radius:      0.5rem;
+  padding:           0.5rem 1rem;
+  margin-bottom:     0.75rem;
+  display:           flex;
+  flex-direction:    row;
+  align-items:       center; 
+  text-align:        left;
+  min-height:        40px;
+  gap:               2rem;
+}
+
+.info-card-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.info-card-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.025em;
+}
+
+.info-card-label {
+  font-size: 0.875rem;
+  color: #8E8E93;
+  font-weight: 400;
+}
+
+.button-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.rugcheck-button, .gmgn-button {
+  background: #007AFF;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  text-decoration: none;
+  text-align: center;
+  border: none;
+  letter-spacing: -0.025em;
+  transition: all 0.2s ease-in-out;
+}
+
+.rugcheck-button:hover, .gmgn-button:hover {
+  background: #0062CC;
+  transform: scale(1.02);
+}
+
+.rugcheck-button:active, .gmgn-button:active {
+  background: #0051D3;
+}
+
+.gmgn-button {
+  background: #34C759;
+}
+
+.gmgn-button:hover {
+  background: #28A745;
+}
+
+.gmgn-button:active {
+  background: #1E7E34;
+}
+
+.close-button {
+  background: rgba(60, 60, 67, 0.03);
+  color: #007AFF;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  letter-spacing: -0.025em;
+  transition: all 0.2s ease-in-out;
+}
+
+.close-button:hover {
+  background: rgba(60, 60, 67, 0.08);
+  transform: scale(1.02);
+}
+
+.close-button:active {
+  background: rgba(60, 60, 67, 0.12);
+}
+
+.text-arcade {
+  text-align: center;
+  color: #8E8E93;
+  font-size: 1rem;
+  padding: 2rem 0;
+}
+
+
+.swap-box {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  transform: translate(-50%, -50%);
+  max-width: 24rem;
+  border-radius: 12px;
+  padding: 32px 16px;
+  margin: 0 auto;
+}
+
+.error-message {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.error-message h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.error-content {
+  margin-bottom: 1.5rem;
+}
+
+.error-content p {
+  font-size: 1rem;
+  color: #8E8E93;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.token-info {
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.token-label {
+  font-size: 0.875rem;
+  color: #8E8E93;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.token-address {
+  font-size: 0.75rem;
+  color: #007AFF;
+  text-decoration: none;
+  word-break: break-all;
+  font-family: monospace;
+}
+
+.token-address:hover {
+  text-decoration: underline;
+}
+
+.quick-buy-section {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.quick-buy-button {
+  background: #34C759;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: -0.025em;
+  margin-bottom: 1.5rem;
+}
+
+.close-button {
+  background: rgba(60, 60, 67, 0.03);
+  color: #007AFF;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  letter-spacing: -0.025em;
+  transition: all 0.2s ease-in-out;
+  margin-top: 1rem;
+}
+
+.amount-input-container {
+  display: flex;
+  align-items: center;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.amount-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.amount-control-btn {
+  background: #007AFF;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.amount-control-btn:hover {
+  background: #0062CC;
+}
+
+.amount-control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quick-buy-input {
+  background: none;
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 1rem;
+  color: #000000;
+  text-align: center;
+  padding: 0 0.5rem;
+}
+
+.currency-label {
+  font-size: 0.875rem;
+  color: #8E8E93;
+  font-weight: 500;
+}
+
+.quick-buy-button {
+  background: #34C759;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  letter-spacing: -0.025em;
+}
+
+.quick-buy-button:hover {
+  background: #28A745;
+}
+
+.quick-buy-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.custom-amount-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+}
+
+.custom-amount-controls .amount-control-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.75rem;
+}
+
+.currency-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.currency-symbol {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.currency-name {
+  font-size: 0.875rem;
+  color: #8E8E93;
+}
+
+.currency-mint {
+  font-size: 0.75rem;
+  color: #007AFF;
+  text-decoration: none;
+}
+
+.currency-mint:hover {
+  text-decoration: underline;
+}
+
+.balance {
+  font-size: 0.75rem;
+  color: #8E8E93;
+  margin-top: 0.25rem;
+}
+
+.swap-arrow {
+  text-align: center;
+  font-size: 1.5rem;
+  color: #8E8E93;
+  margin: 1rem 0;
+}
+
+.to-amount-input {
+  background: rgba(118, 118, 128, 0.06);
+  color: #8E8E93;
+}
+
+.slippage-settings {
+  margin-bottom: 1.5rem;
+}
+
+.slippage-settings label {
+  font-size: 0.875rem;
+  color: #8E8E93;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.slippage-options {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.slippage-option {
+  background: rgba(118, 118, 128, 0.12);
+  color: #000000;
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 1;
+}
+
+.slippage-option:hover {
+  background: rgba(118, 118, 128, 0.18);
+}
+
+.slippage-option.active {
+  background: #007AFF;
+  color: white;
+}
+
+.custom-slippage {
+  display: flex;
+  align-items: center;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+}
+
+.custom-slippage input {
+  background: none;
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 0.875rem;
+  color: #000000;
+}
+
+.percent-sign {
+  font-size: 0.875rem;
+  color: #8E8E93;
+  margin-left: 0.25rem;
+}
+
+.swap-execute-button {
+  background: #007AFF;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.swap-execute-button:hover {
+  background: #0062CC;
+}
+
+.swap-execute-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Dark mode support for swap styles */
+@media (prefers-color-scheme: dark) {
+  .error-message h3 {
+    color: #FFFFFF;
+  }
+  
+  .token-info {
+    background: rgba(235, 235, 245, 0.12);
+  }
+  
+  .amount-input-container {
+    background: rgba(235, 235, 245, 0.12);
+  }
+  
+  .quick-buy-input {
+    color: #FFFFFF;
+  }
+  
+  .slippage-option {
+    background: rgba(235, 235, 245, 0.12);
+    color: #FFFFFF;
+  }
+  
+  .slippage-option:hover {
+    background: rgba(235, 235, 245, 0.18);
+  }
+  
+  .custom-slippage {
+    background: rgba(235, 235, 245, 0.12);
+  }
+  
+  .custom-slippage input {
+    color: #FFFFFF;
+  }
+  
+  .to-amount-input {
+    background: rgba(235, 235, 245, 0.06);
+  }
+}
+
+ 
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .token-info-title {
+    color: #FFFFFF;
+  }
+  
+  .info-card {
+    background: rgba(235, 235, 245, 0.12);
+  }
+  
+  .info-card-value {
+    color: #FFFFFF;
+  }
+  
+  .text-arcade {
+    color: #8E8E93;
+  }
+  
+  .close-button {
+    background: rgba(235, 235, 245, 0.03);
+  }
+  
+  .close-button:hover {
+    background: rgba(235, 235, 245, 0.08);
+  }
+  
+  .close-button:active {
+    background: rgba(235, 235, 245, 0.12);
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .swap-box, .token-info-box {
+    margin: 0 0.5rem;
+    padding: 24px 12px;
+  }
+  
+  .info-card {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .button-container {
+    gap: 0.5rem;
+  }
 }
 
 .input-group {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .input-group label {
@@ -369,6 +890,63 @@ button:hover {
 
   .amount-input input {
     color: #FFFFFF;
+  }
+}
+
+
+.loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #F2F2F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-bar {
+  width: 200px;
+  height: 3px;
+  background: rgba(142, 142, 147, 0.3);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.loading-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #007AFF, #5AC8FA);
+  border-radius: 1.5px;
+  transition: width 0.05s ease-out;
+}
+
+.loading-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #535353;
+  letter-spacing: -0.025em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .loading-screen {
+    background: #000000;
+  }
+  
+  .loading-bar {
+    background: rgba(235, 235, 245, 0.12);
+  }
+  
+  .loading-text {
+    color: #828181;
   }
 }
 

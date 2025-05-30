@@ -3,8 +3,6 @@ import { Raydium } from '@raydium-io/raydium-sdk-v2';
 
 const runtimeConfig = window.RUNTIME_CONFIG || {};
 
-console.log('Runtime config:', runtimeConfig);
-
 const getApiBaseUrl = () => {
     if (runtimeConfig.API_URL) return runtimeConfig.API_URL;
     
@@ -27,10 +25,6 @@ const getApiBaseUrl = () => {
 export const config = {
     API_BASE_URL: getApiBaseUrl(),
 };
-
-console.log('App config:', {
-    API_BASE_URL: config.API_BASE_URL || '(using relative URLs)',
-});
 
 class SecureConnection extends Connection {
     constructor(apiBaseUrl) {

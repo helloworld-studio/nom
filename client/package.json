@@ -8,6 +8,7 @@
   "proxy": "http://localhost:5000",
   "dependencies": {
     "@raydium-io/raydium-sdk-v2": "^0.1.128-alpha",
+    "@react-spring/web": "^10.0.1",
     "@solana/spl-token": "^0.4.9",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",

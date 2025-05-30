@@ -1,25 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSpring, animated } from '@react-spring/web';
 import { TxVersion, Curve, PlatformConfig, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
-import { PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { PublicKey, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js';
 import { NATIVE_MINT, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import BN from 'bn.js';
 import Decimal from 'decimal.js';
 import { toast } from 'react-toastify';
 import { initSdk } from '../config';
 import axios from 'axios';
-import { VersionedTransaction } from '@solana/web3.js';
 import rpcService from '../services/RpcService';
 
 const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
-
 const NOM_TOKEN_MINT = "2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk";
 const NOM_POOL_ID = "949rM1nZto1ZGYP5Mxwrfvwhr5CxRbVTsHaCL9S73pLu";
 
-const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTransactions }) => {
+const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
+    // Get wallet properties including signMessage
+    const { publicKey, connected, signTransaction, signMessage } = useWallet();
+    const [isVerified, setIsVerified] = useState(false);
+    const [error, setError] = useState(null); // Keep this for future use
+    const [walletBalance, setWalletBalance] = useState(0);
+
+    // Existing state
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [balance, setBalance] = useState(0);
+    // const [balance, setBalance] = useState(0); // Removed, redundant with walletBalance
     const [hasRequiredToken, setHasRequiredToken] = useState(false);
     const [slippage, setSlippage] = useState(1);
     const [customSlippage, setCustomSlippage] = useState('');
@@ -33,65 +41,130 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
     const [quickBuyAmount, setQuickBuyAmount] = useState('0.1');
 
+    const slideAnimation = useSpring({
+        from: { 
+          transform: 'translate(-150%, -50%)',
+          opacity: 0 
+        },
+        to: { 
+          transform: 'translate(-50%, -50%)',
+          opacity: 1 
+        },
+        config: {
+          tension: 120,
+          friction: 20,
+          mass: 1
+        }
+      });
+
+    // Wallet verification logic
+    // Update the verifyWalletOwnership useCallback (around line 75-95)
+    const verifyWalletOwnership = useCallback(async () => {
+    if (!connected || !publicKey || !signMessage) {
+        setIsVerified(false);
+        return;
+    }
+    try {
+        const message = `Verify wallet ownership for Nom App: ${publicKey.toString()} at ${Date.now()}`;
+        const encodedMessage = new TextEncoder().encode(message);
+        await signMessage(encodedMessage);
+        setIsVerified(true);
+        toast.success("Wallet verified successfully!");
+    } catch (err) {
+        console.error("Wallet verification failed:", err);
+        setIsVerified(false);
+        setError("Wallet verification failed. Please try again.");
+        toast.error("Wallet verification failed");
+    }
+    }, [connected, publicKey, signMessage, setIsVerified, setError]); // Add signMessage to dependency array
+
+    // Fetch wallet balance (SOL balance)
+    useEffect(() => {
+        const fetchSolBalance = async () => {
+            if (publicKey && connected && isVerified) {
+                try {
+                    const balanceLamports = await rpcService.getBalance(publicKey);
+                    const balanceSol = balanceLamports / LAMPORTS_PER_SOL;
+                    setWalletBalance(balanceSol); // Use for general SOL balance
+                    setError(null);
+                } catch (fetchError) {
+                    console.error("Failed to fetch SOL balance:", fetchError);
+                    setError("Failed to fetch SOL balance.");
+                }
+            }
+        };
+        fetchSolBalance();
+    }, [publicKey, connected, isVerified, setWalletBalance, setError]); // Removed setBalance from dependency array
+
+    // Verify wallet when connected or public key changes
+    // Add this state to track if verification has been attempted (around line 25-30 with other state variables)
+    const [verificationAttempted, setVerificationAttempted] = useState(false);
+    
+    // Replace the existing useEffect for wallet verification (around line 100-110)
+    useEffect(() => {
+        if (connected && publicKey && !verificationAttempted) {
+            setError(null);
+            verifyWalletOwnership();
+            setVerificationAttempted(true); // Mark verification as attempted
+        } else if (!connected) {
+            setIsVerified(false);
+            setVerificationAttempted(false); // Reset when disconnected
+        }
+    }, [connected, publicKey, verifyWalletOwnership, setError, setIsVerified, verificationAttempted]);
+
+    // Check for required NOM token
     useEffect(() => {
         const checkRequiredToken = async () => {
-            if (!window.solana?.publicKey) return;
+            if (!publicKey || !connected) { // Check publicKey and connected status
+                setHasRequiredToken(false);
+                return;
+            }
             
             try {
-                const requiredTokenMint = new PublicKey('2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk');
-                
-                const tokenAccountsResponse = await rpcService.getParsedTokenAccountsByOwner(
-                    window.solana.publicKey,
+                const requiredTokenMintPk = new PublicKey(NOM_TOKEN_MINT);
+                const tokenAccountsResponse = await rpcService.getTokenAccountsByOwner(
+                    publicKey, // Use publicKey from useWallet()
                     TOKEN_PROGRAM_ID
                 );
-
-                const tokenAccounts = tokenAccountsResponse.result;
                 
-                const requiredToken = tokenAccounts.value.find(account => 
-                    account.account.data.parsed.info.mint === requiredTokenMint.toString()
+                if (tokenAccountsResponse.error) {
+                    console.error('Error fetching token accounts:', tokenAccountsResponse.error);
+                    setHasRequiredToken(false);
+                    return;
+                }
+                
+                const accounts = tokenAccountsResponse.value || tokenAccountsResponse.result?.value || [];
+                const requiredTokenAccount = accounts.find(account => 
+                    account.account.data.parsed?.info?.mint === requiredTokenMintPk.toString()
                 );
 
-                if (requiredToken) {
-                    const tokenAmount = Number(requiredToken.account.data.parsed.info.tokenAmount.amount);
+                if (requiredTokenAccount) {
+                    const tokenAmount = Number(requiredTokenAccount.account.data.parsed.info.tokenAmount.uiAmount);
                     if (tokenAmount > 0) {
                         setHasRequiredToken(true);
                         return;
                     }
                 }
-                
-                console.log('Required token not found or amount is 0');
                 setHasRequiredToken(false);
-
             } catch (error) {
-                console.error('Error checking required token:', error);
+                console.error('Error checking required NOM token:', error);
                 setHasRequiredToken(false);
             }
         };
 
         checkRequiredToken();
-    }, []);
+    }, [publicKey, connected]); // Add publicKey and connected as dependencies
 
-    useEffect(() => {
-        const fetchBalance = async () => {
-            if (window.solana?.publicKey) {
-                const balance = await rpcService.getBalance(window.solana.publicKey);
-                setBalance(balance / LAMPORTS_PER_SOL);
-            }
-        };
-        fetchBalance();
-    }, []);
-
-    const getPoolId = async (raydium, mintA, mintB) => {
-        // Special case for NOM token
+    const getPoolId = async (mintA, mintB) => {
         if (mintA.toString() === NOM_TOKEN_MINT) {
-            console.log("Using hardcoded pool ID for NOM token");
             return new PublicKey(NOM_POOL_ID);
         }
-        
         return getPdaLaunchpadPoolId(new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID), mintA, mintB).publicKey;
     };
 
     const calculateSwap = async (inputAmount) => {
+        // ... (rest of calculateSwap, ensure it uses component state and props correctly)
+        // Make sure fixedTokenData.mint is valid
         setToAmount(''); 
         if (!fixedTokenData.mint || inputAmount <= 0) {
             console.log("Calculation skipped: Invalid input amount or tokenMint missing");
@@ -100,13 +173,13 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
         try {
             console.log(`Calculating swap for ${inputAmount} SOL to ${fixedTokenData.mint}`);
-            const raydium = await initSdk();
+            // const raydium = await initSdk(); // Commented out as it's unused
             const mintA = new PublicKey(fixedTokenData.mint);
             const mintB = NATIVE_MINT;
             const inAmount = new BN(Math.floor(inputAmount * LAMPORTS_PER_SOL));
             console.log("Input lamports (amountB):", inAmount.toString());
 
-            const poolId = await getPoolId(raydium, mintA, mintB);
+            const poolId = await getPoolId(mintA, mintB);
             console.log("Pool ID:", poolId.toString());
             const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
             const poolInfo = poolInfoResponse.result;
@@ -129,17 +202,11 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             const platformInfo = PlatformConfig.decode(platformData.data);
             console.log('Platform Info:', platformInfo);
 
-            // Now check configInfo
             if (!poolInfo.configInfo) {
                 console.error("poolInfo.configInfo is missing", poolInfo);
                 toast.error('Pool configuration details are missing.');
                 return;
             }
-
-            console.log("Using for calculation - protocolFeeRate:", poolInfo.configInfo.tradeFeeRate);
-            console.log("Using for calculation - platformFeeRate:", platformInfo.feeRate);
-            console.log("Using for calculation - curveType:", poolInfo.configInfo.curveType);
-
 
             const res = Curve.buyExactIn({
                 poolInfo,
@@ -149,9 +216,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 curveType: poolInfo.configInfo.curveType,
                 shareFeeRate: new BN(0),
             });
-            console.log("Calculation Result (res):", res);
-            console.log("Raw output amount (amountA):", res.amountA.toString());
-
 
             if (!res || !res.amountA) {
                  console.error("Calculation result invalid", res);
@@ -165,7 +229,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             const expectedAmount = new Decimal(res.amountA.toString())
                 .div(divisor)
                 .toFixed(decimals);
-
+            
             console.log("Calculated expected amount (string):", expectedAmount);
 
             if (expectedAmount && !isNaN(parseFloat(expectedAmount))) {
@@ -219,32 +283,23 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
     };
 
     const handleSwap = async () => {
-        if (isLoading || !fromAmount || !window.solana?.publicKey || typeof window.solana.signAllTransactions !== 'function') {
-             toast.error('Wallet not connected or signAllTransactions method is missing.');
-             console.error("Wallet connection issue:", window.solana);
+        if (isLoading || !fromAmount || !publicKey || !signTransaction) { // Use publicKey and signTransaction from useWallet
+             toast.error('Wallet not connected or transaction signing is unavailable.');
+             console.error("Wallet/swap readiness issue:", {isLoading, fromAmount, publicKey, signTransaction});
              return;
         }
         setIsLoading(true);
 
         try {
-            const wallet = {
-                publicKey: window.solana.publicKey,
-                signTransaction: window.solana.signTransaction.bind(window.solana),
-                signAllTransactions: window.solana.signAllTransactions.bind(window.solana)
-            };
-            
             const raydium = await initSdk();
-            
-            raydium.setOwner(wallet.publicKey);
+            raydium.setOwner(publicKey);
 
             const mintA = new PublicKey(fixedTokenData.mint);
             const mintB = NATIVE_MINT;
             const inAmount = new BN(Math.floor(parseFloat(fromAmount) * LAMPORTS_PER_SOL));
-            
             const slippageBasisPoints = getSlippageBasisPoints();
-            console.log(`Using slippage: ${slippageBasisPoints.toString()} basis points (${slippage === 'custom' ? customSlippage : slippage}%)`);
 
-            const poolId = await getPoolId(raydium, mintA, mintB);
+            const poolId = await getPoolId(mintA, mintB);
             const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
             const poolInfo = poolInfoResponse.result;
             
@@ -264,11 +319,8 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                  return;
             }
             const platformInfo = PlatformConfig.decode(platformData.data);
-
-            console.log("Getting transaction from buyToken...");
             
-            // eslint-disable-next-line no-unused-vars
-            const { transaction, extInfo } = await raydium.launchpad.buyToken({
+            const { transaction } = await raydium.launchpad.buyToken({
                 programId: new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID),
                 mintA,
                 slippage: slippageBasisPoints,
@@ -279,44 +331,29 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 skipPreflight: false,
             });
 
-            if (!transaction) {
-                throw new Error("No transaction returned from buyToken");
-            }
-            console.log("Transaction received:", transaction);
+            if (!transaction) throw new Error("No transaction returned from buyToken");
 
-            console.log("Signing transaction...");
-            const signedTransaction = await window.solana.signTransaction(transaction);
-            console.log("Transaction signed successfully");
-
+            const signedTransaction = await signTransaction(transaction); // Use signTransaction from useWallet
             const signature = await rpcService.sendRawTransaction(signedTransaction.serialize(), {
                 skipPreflight: false,
                 preflightCommitment: "confirmed"
             });
-            console.log("Transaction sent with signature:", signature);
-
-            console.log("Waiting for confirmation...");
-            const confirmationResponse = await rpcService.confirmTransaction(signature, "confirmed");
-            const confirmation = confirmationResponse.result;
             
-            if (confirmation.value.err) {
-                throw new Error(`Transaction failed during confirmation: ${confirmation.value.err}`);
+            const confirmationResponse = await rpcService.confirmTransaction(signature, "confirmed");
+            if (confirmationResponse.result.value.err) {
+                throw new Error(`Transaction failed: ${confirmationResponse.result.value.err}`);
             }
             
-            console.log("Transaction confirmed:", signature);
-
             toast.success('Swap successful!');
-            if (window.solana?.publicKey) {
-                const updatedBalance = await rpcService.getBalance(window.solana.publicKey);
-                setBalance(updatedBalance / LAMPORTS_PER_SOL);
+            if (publicKey) {
+                const updatedBalance = await rpcService.getBalance(publicKey);
+                // setBalance(updatedBalance / LAMPORTS_PER_SOL); // Replaced with setWalletBalance
+                setWalletBalance(updatedBalance / LAMPORTS_PER_SOL);
             }
             onClose();
         } catch (error) {
             console.error('Swap error:', error);
-            if (error.message.includes('sign') || error.message.includes('Transaction')) {
-                 toast.error(`Swap failed: ${error.message}. Please ensure the transaction is approved in your wallet.`);
-            } else {
-                 toast.error(error.message || 'Failed to complete swap');
-            }
+            toast.error(error.message || 'Failed to complete swap');
         } finally {
             setIsLoading(false);
         }
@@ -329,14 +366,14 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
     const incrementAmount = () => {
         const currentVal = parseFloat(fromAmount) || 0;
-        const newVal = (Math.round((currentVal + 0.1) * 10) / 10).toFixed(1); // Round to 1 decimal place
+        const newVal = (Math.round((currentVal + 0.1) * 10) / 10).toFixed(1);
         handleFromAmountChange(newVal);
     };
 
     const decrementAmount = () => {
         const currentVal = parseFloat(fromAmount) || 0;
         if (currentVal >= 0.1) {
-            const newVal = (Math.round((currentVal - 0.1) * 10) / 10).toFixed(1); // Round to 1 decimal place
+            const newVal = (Math.round((currentVal - 0.1) * 10) / 10).toFixed(1);
             handleFromAmountChange(newVal);
         }
     };
@@ -362,224 +399,275 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
     };
 
     const buyNomToken = async () => {
-        if (!window.solana?.publicKey) {
-            toast.error('Please connect your wallet first');
+        if (!publicKey || !signTransaction) { // Use publicKey and signTransaction from useWallet
+            toast.error('Please connect and verify your wallet first');
             return;
         }
-
         setIsLoading(true);
         try {
-            // NOM token details
-            const inputMint = 'So11111111111111111111111111111111111111112'; // SOL
-            const outputMint = '2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk'; // NOM
-            const amount = Math.floor(parseFloat(quickBuyAmount) * LAMPORTS_PER_SOL); // Convert to lamports
+            const inputMint = NATIVE_MINT.toString();
+            const outputMint = NOM_TOKEN_MINT;
+            const amount = Math.floor(parseFloat(quickBuyAmount) * LAMPORTS_PER_SOL);
             const slippageBps = 100; // 1%
-            const txVersion = 'V0';
-            
-            console.log('Getting swap quote...');
             
             const quoteResponse = await axios.get(
-                `https://transaction-v1.raydium.io/compute/swap-base-in?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&txVersion=${txVersion}`
+                `https://quote-api.raydium.io/v2/sdk/quote/swap?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&computeUnitPriceMicroLamports=10000`
             );
             
-            console.log('Quote received:', quoteResponse.data);
+            const { swapTransaction } = quoteResponse.data;
+            const transaction = VersionedTransaction.deserialize(Buffer.from(swapTransaction, 'base64'));
             
-            const txResponse = await axios.post('https://transaction-v1.raydium.io/transaction/swap-base-in', {
-                computeUnitPriceMicroLamports: '100', // Fixed priority fee
-                swapResponse: quoteResponse.data,
-                txVersion,
-                wallet: window.solana.publicKey.toString(),
-                wrapSol: true, // Since input is SOL
-                unwrapSol: false, // Output is NOM
-                // Input account is not needed for SOL
-                // Output account will default to ATA
-            });
-            
-            console.log('Transaction received:', txResponse.data);
-            
-            const txBuffer = Buffer.from(txResponse.data.data[0].transaction, 'base64');
-            const transaction = VersionedTransaction.deserialize(txBuffer);
-            
-            console.log('Signing transaction...');
-            const signedTx = await window.solana.signTransaction(transaction);
-            
-            console.log('Sending transaction...');
+            const signedTx = await signTransaction(transaction); // Use signTransaction from useWallet
             const signature = await rpcService.sendRawTransaction(signedTx.serialize());
             
-            console.log('Transaction sent:', signature);
-            toast.success('NOM token purchase sent!');
-            
+            toast.success('NOM token purchase sent! Signature: ' + signature.substring(0,10) + '...');
+            // Optionally, wait for confirmation and update balance
+            await rpcService.confirmTransaction(signature, "confirmed");
+            toast.success('NOM token purchase confirmed!');
+            if (publicKey) {
+                const updatedBalance = await rpcService.getBalance(publicKey);
+                // setBalance(updatedBalance / LAMPORTS_PER_SOL); // Replaced with setWalletBalance
+                setWalletBalance(updatedBalance / LAMPORTS_PER_SOL);
+                // Re-check NOM token balance
+                 const checkRequiredToken = async () => {
+                    if (!publicKey || !connected) { 
+                        setHasRequiredToken(false);
+                        return;
+                    }
+                    try {
+                        const requiredTokenMintPk = new PublicKey(NOM_TOKEN_MINT);
+                        const tokenAccountsResponse = await rpcService.getTokenAccountsByOwner(
+                            publicKey, 
+                            TOKEN_PROGRAM_ID
+                        );
+                        if (tokenAccountsResponse.error) {
+                            setHasRequiredToken(false);
+                            return;
+                        }
+                        const accounts = tokenAccountsResponse.value || tokenAccountsResponse.result?.value || [];
+                        const requiredTokenAccount = accounts.find(account => 
+                            account.account.data.parsed?.info?.mint === requiredTokenMintPk.toString()
+                        );
+                        if (requiredTokenAccount) {
+                            const tokenAmount = Number(requiredTokenAccount.account.data.parsed.info.tokenAmount.uiAmount);
+                            if (tokenAmount > 0) {
+                                setHasRequiredToken(true);
+                                return;
+                            }
+                        }
+                        setHasRequiredToken(false);
+                    } catch (error) {
+                        setHasRequiredToken(false);
+                    }
+                };
+                checkRequiredToken();
+            }
+
         } catch (error) {
-            console.error('Error buying NOM token:', error);
-            toast.error(`Failed to buy NOM: ${error.message}`);
+            console.error('Error buying NOM token:', error.response ? error.response.data : error);
+            toast.error(`Failed to buy NOM: ${error.message || 'Unknown error'}`);
         } finally {
             setIsLoading(false);
         }
     };
 
+    // Conditional rendering based on wallet connection
+    if (!connected) {
+        return (
+            <div className="swap-container">
+                <animated.div className="swap-box" style={slideAnimation}>
+                    <p>Please connect your wallet to use the swap feature.</p>
+                    <WalletMultiButton />
+                    {error && <p className="error-message">{error}</p>} {/* Use error here */}
+                    <button className="close-button" onClick={onClose}>Close</button>
+                </animated.div>
+            </div>
+        );
+    }
+
+    // if (!isVerified) {
+    //     return (
+    //         <div className="swap-container">
+    //             <animated.div className="swap-box" style={slideAnimation}>
+    //                 <p>Please verify your wallet ownership.</p>
+    //                 <button onClick={verifyWalletOwnership} disabled={isLoading || !signMessage}>
+    //                     {isLoading ? 'Verifying...' : 'Verify Wallet'}
+    //                 </button>
+    //                 {error && <p className="error-message">{error}</p>}
+    //                 <button className="close-button" onClick={onClose}>Close</button>
+    //             </animated.div>
+    //         </div>
+    //     );
+    // }
+
     return (
         <div className="swap-container">
-            {!hasRequiredToken ? (
-                <div className="swap-box">
-                    <div className="error-message">
-                        <h3>Access Restricted</h3>
-                        <div className="error-content">
-                            <p>To use this swap feature, you need to hold the required $NOM token in your wallet:</p>
-                            <div className="token-info">
-                                <span className="token-label">Required Token:</span>
-                                <a 
-                                    href={`https://letsbonk.fun/token/2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="token-address"
-                                >
-                                    2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk
-                                </a>
-                            </div>
-                            <div className="quick-buy-section">
-                                <div className="amount-input-container">
-                                    <div className="amount-controls">
-                                        <button 
-                                            className="amount-control-btn"
-                                            onClick={decrementQuickBuyAmount}
-                                            disabled={isLoading}
-                                        >
-                                            -
-                                        </button>
-                                        <input
-                                            type="text"
-                                            value={quickBuyAmount}
-                                            onChange={(e) => handleQuickBuyAmountChange(e.target.value)}
-                                            className="quick-buy-input"
-                                            placeholder="0.0"
-                                            disabled={isLoading}
-                                        />
-                                        <button 
-                                            className="amount-control-btn"
-                                            onClick={incrementQuickBuyAmount}
-                                            disabled={isLoading}
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    <span className="currency-label">SOL</span>
+            <animated.div className="swap-box" style={slideAnimation}>
+                {!hasRequiredToken ? (
+                    <>
+                        <div className="error-message">
+                            <h3>Access Restricted</h3>
+                            <div className="error-content">
+                                <p>To use this swap feature, you need to hold $NOM token.</p>
+                                <div className="token-info">
+                                    <span className="token-label">Required:</span>
+                                    <a 
+                                        href={`https://solscan.io/token/${NOM_TOKEN_MINT}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="token-address"
+                                    >
+                                        $NOM ({(NOM_TOKEN_MINT)})
+                                    </a>
                                 </div>
-                                <button 
-                                    className="quick-buy-button"
-                                    onClick={buyNomToken}
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? "Processing..." : `Buy ${quickBuyAmount} SOL of $NOM`}
-                                </button>
                             </div>
                         </div>
-                    </div>
-                    <button className="close-button" onClick={onClose}>Close</button>
-                </div>
-            ) : (
-                <div className="swap-box">
-                    <div className="input-group">
-                        <label>From</label>
-                        <div className="amount-input">
-                            <input
-                                type="number"
-                                value={fromAmount}
-                                onChange={(e) => handleFromAmountChange(e.target.value)}
-                                placeholder="0.0"
-                                step="0.1"
-                                min="0"
-                            />
-                            <div className="custom-amount-controls">
-                                <button className="amount-control-btn" onClick={incrementAmount}>+</button>
-                                <button className="amount-control-btn" onClick={decrementAmount}>−</button>
+                        
+                        <div className="quick-buy-section">
+                            <h4>Buy $NOM</h4>
+                            <div className="amount-input-container">
+                                <div className="amount-controls">
+                                    <button 
+                                        className="amount-control-btn"
+                                        onClick={decrementQuickBuyAmount}
+                                        disabled={isLoading}
+                                    >
+                                        -
+                                    </button>
+                                    <input
+                                        type="text"
+                                        value={quickBuyAmount}
+                                        onChange={(e) => handleQuickBuyAmountChange(e.target.value)}
+                                        className="quick-buy-input"
+                                        placeholder="0.0"
+                                        disabled={isLoading}
+                                    />
+                                    <button 
+                                        className="amount-control-btn"
+                                        onClick={incrementQuickBuyAmount}
+                                        disabled={isLoading}
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <span className="currency-label">SOL</span>
                             </div>
-                            <div className="currency-info">
-                                <span className="currency-symbol">◎</span> 
-                                <span className="currency-name">SOL</span>
-                            </div>
-                        </div>
-                        <div className="balance">Balance: {balance.toFixed(4)} SOL</div>
-                    </div>
-
-                    <div className="swap-arrow">↓</div>
-
-                    <div className="input-group">
-                        <label>To (Estimate)</label>
-                        <div className="amount-input">
-                            <input
-                                type="text"
-                                value={toAmount}
-                                readOnly
-                                placeholder="0.0"
-                                className="to-amount-input"
-                            />
-                            <div className="currency-info">
-                                <span className="currency-symbol">{fixedTokenData.symbol}</span>
-                                <span className="currency-name">{fixedTokenData.name}</span>
-                                <a 
-                                    href={`https://letsbonk.fun/token/${fixedTokenData.mint}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="currency-mint"
-                                >
-                                    ({truncateAddress(fixedTokenData.mint)})
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="slippage-settings">
-                        <label>Slippage Tolerance</label>
-                        <div className="slippage-options">
                             <button 
-                                className={`slippage-option ${slippage === 0.1 ? 'active' : ''}`}
-                                onClick={() => handleSlippageChange(0.1)}
+                                className="quick-buy-button"
+                                onClick={buyNomToken}
+                                disabled={isLoading || !connected || !publicKey || !signTransaction}
                             >
-                                0.1%
-                            </button>
-                            <button 
-                                className={`slippage-option ${slippage === 0.5 ? 'active' : ''}`}
-                                onClick={() => handleSlippageChange(0.5)}
-                            >
-                                0.5%
-                            </button>
-                            <button 
-                                className={`slippage-option ${slippage === 1 ? 'active' : ''}`}
-                                onClick={() => handleSlippageChange(1)}
-                            >
-                                1%
-                            </button>
-                            <button 
-                                className={`slippage-option ${slippage === 'custom' ? 'active' : ''}`}
-                                onClick={() => handleSlippageChange('custom')}
-                            >
-                                Custom
+                                {isLoading ? "Processing..." : `Buy ${quickBuyAmount} SOL of $NOM`}
                             </button>
                         </div>
                         
-                        {showCustomSlippage && (
-                            <div className="custom-slippage">
+                        <button className="close-button" onClick={onClose}>Close</button>
+                    </>
+                ) : (
+                    <>
+                        <div className="input-group">
+                            <label>From</label>
+                            <div className="amount-input">
+                                <input
+                                    type="number"
+                                    value={fromAmount}
+                                    onChange={(e) => handleFromAmountChange(e.target.value)}
+                                    placeholder="0.0"
+                                    step="0.1"
+                                    min="0"
+                                />
+                                <div className="custom-amount-controls">
+                                    <button className="amount-control-btn" onClick={incrementAmount}>+</button>
+                                    <button className="amount-control-btn" onClick={decrementAmount}>−</button>
+                                </div>
+                                <div className="currency-info">
+                                    <span className="currency-symbol">◎</span> 
+                                    <span className="currency-name">SOL</span>
+                                </div>
+                            </div>
+                            <div className="balance">Balance: {walletBalance.toFixed(4)} SOL</div>
+                        </div>
+
+                        <div className="swap-arrow">↓</div>
+
+                        <div className="input-group">
+                            <label>To (Estimate)</label>
+                            <div className="amount-input">
                                 <input
                                     type="text"
-                                    value={customSlippage}
-                                    onChange={(e) => handleCustomSlippageChange(e.target.value)}
-                                    placeholder="Enter %"
+                                    value={toAmount}
+                                    readOnly
+                                    placeholder="0.0"
+                                    className="to-amount-input"
                                 />
-                                <span className="percent-sign">%</span>
+                                <div className="currency-info">
+                                    <span className="currency-symbol">{fixedTokenData.symbol}</span>
+                                    <span className="currency-name">{fixedTokenData.name}</span>
+                                    <a 
+                                        href={`https://solscan.io/token/${fixedTokenData.mint}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="currency-mint"
+                                    >
+                                        ({truncateAddress(fixedTokenData.mint)})
+                                    </a>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
 
-                    <button 
-                        className="swap-execute-button"
-                        onClick={handleSwap}
-                        disabled={isLoading || !fromAmount || !toAmount || parseFloat(toAmount) <= 0}
-                    >
-                        {isLoading ? "Swapping..." : "Swap"}
-                    </button>
-                    <button className="close-button" onClick={onClose}>Close</button>
-                </div>
-            )}
+                        <div className="slippage-settings">
+                            <label>Slippage Tolerance</label>
+                            <div className="slippage-options">
+                                <button 
+                                    className={`slippage-option ${slippage === 0.1 ? 'active' : ''}`}
+                                    onClick={() => handleSlippageChange(0.1)}
+                                >
+                                    0.1%
+                                </button>
+                                <button 
+                                    className={`slippage-option ${slippage === 0.5 ? 'active' : ''}`}
+                                    onClick={() => handleSlippageChange(0.5)}
+                                >
+                                    0.5%
+                                </button>
+                                <button 
+                                    className={`slippage-option ${slippage === 1 ? 'active' : ''}`}
+                                    onClick={() => handleSlippageChange(1)}
+                                >
+                                    1%
+                                </button>
+                                <button 
+                                    className={`slippage-option ${slippage === 'custom' ? 'active' : ''}`}
+                                    onClick={() => handleSlippageChange('custom')}
+                                >
+                                    Custom
+                                </button>
+                            </div>
+                            
+                            {showCustomSlippage && (
+                                <div className="custom-slippage">
+                                    <input
+                                        type="text"
+                                        value={customSlippage}
+                                        onChange={(e) => handleCustomSlippageChange(e.target.value)}
+                                        placeholder="Enter %"
+                                    />
+                                    <span className="percent-sign">%</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <button 
+                            className="swap-execute-button"
+                            onClick={handleSwap}
+                            disabled={isLoading || !fromAmount || !toAmount || parseFloat(toAmount) <= 0 || !connected || !publicKey || !signTransaction}
+                        >
+                            {isLoading ? "Swapping..." : "Swap"}
+                        </button>
+                        <button className="close-button" onClick={onClose}>Close</button>
+                    </>
+                )}
+            </animated.div>
         </div>
     );
 };

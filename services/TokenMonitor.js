@@ -46,9 +46,9 @@ class TokenMonitor {
 
       const dataStr = metaplexInstruction.data;
       
-      const nameMatch = dataStr.match(/"name":"([^"]+)"/);
-      const symbolMatch = dataStr.match(/"symbol":"([^"]+)"/);
-      const uriMatch = dataStr.match(/"uri":"([^"]+)"/);
+      const nameMatch = dataStr.match(/"name":"([^"]+)"/); 
+      const symbolMatch = dataStr.match(/"symbol":"([^"]+)"/); 
+      const uriMatch = dataStr.match(/"uri":"([^"]+)"/); 
 
       const metadata = {
         name: nameMatch ? nameMatch[1] : null,
@@ -301,17 +301,13 @@ class TokenMonitor {
     }
   }
 
-  // Simplified filtering - only look for the actual token creation instruction
+  // Simple original filtering - just check for Initialize instruction
   isRaydiumTokenCreation(logs) {
-    return logs.logs.some(log => 
-      log.includes("Program log: Instruction: Initialize")
-    );
+    return logs.logs.some(log => log.includes("Program log: Instruction: Initialize"));
   }
 
-  // Simplified platform detection - since we're only monitoring Raydium Launchpad
-  async identifyTokenPlatform(tx, mintAddress) {
-    return "Raydium Launchpad";
-  }
+  // Remove the complex isActualTokenCreation method entirely
+  // (delete this method)
 
   async monitorTokens() {
     if (this.isMonitoring) {
@@ -334,7 +330,7 @@ class TokenMonitor {
               return;
             }
             
-            // Early exit if not a token creation
+            // Simple original filtering - just check for Initialize instruction
             if (!this.isRaydiumTokenCreation(logs)) {
               return;
             }
@@ -350,17 +346,21 @@ class TokenMonitor {
               return;
             }
             
+            // Remove the additional isActualTokenCreation validation
+            
             if (!tx.meta?.postTokenBalances?.length) {
               return;
             }
             
-            // Find new tokens - simplified
+            // Find new tokens - simplified without extra validation
             for (const balance of tx.meta.postTokenBalances) {
               if (!balance.mint || 
                   balance.mint === "So11111111111111111111111111111111111111112" ||
                   this.knownTokens.has(balance.mint)) {
                 continue;
               }
+              
+              // Remove the final mint creation validation
               
               // Add to known tokens immediately to prevent duplicates
               this.knownTokens.add(balance.mint);
@@ -370,11 +370,11 @@ class TokenMonitor {
               const tokenType = isLetsBonk ? "LetsBonk" : "Other Raydium";
                 
               this.formatLog(`🎉 NEW ${tokenType.toUpperCase()} TOKEN CREATED!`, "success");
-                this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
-                this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
+              this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
+              this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
               this.formatLog(`├─ Created: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
                 
-                await this.processTokenCreation(logs.signature, tx, balance.mint);
+              await this.processTokenCreation(logs.signature, tx, balance.mint);
             
               // Process only the first new token per transaction to avoid spam
               break;

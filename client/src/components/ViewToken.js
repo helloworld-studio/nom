@@ -7,10 +7,7 @@ import TokenInfo from './TokenInfo';
 import { config } from '../config';
 import SUMMA from '../assets/sus.png';
 
-const ViewToken = ({ 
-  
-    signAllTransactions 
-}) => {
+const ViewToken = () => {
     const [latestTransaction, setLatestTransaction] = useState(null);
     const [showSwap, setShowSwap] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
@@ -162,7 +159,6 @@ const ViewToken = ({
                     tokenName={latestTransaction.name || 'Unknown Token'}
                     tokenSymbol={latestTransaction.symbol || '???'}
                     onClose={() => setShowSwap(false)}
-                    signAllTransactions={signAllTransactions}
                 />
             )}
             {showInfo && (

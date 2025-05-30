@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useSpring, animated } from '@react-spring/web';
 import "../App.css"; 
 import { config } from '../config';
 
@@ -53,6 +54,22 @@ const TokenInfo = ({ onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const slideAnimation = useSpring({
+    from: { 
+      transform: 'translate(-150%, -50%)',
+      opacity: 0 
+    },
+    to: { 
+      transform: 'translate(-50%, -50%)',
+      opacity: 1 
+    },
+    config: {
+      tension: 120,
+      friction: 20,
+      mass: 1
+    }
+  });
+
   useEffect(() => {
     setLoading(true);
     axios.get(`${config.API_BASE_URL}/api/latest-transaction/analytics`)
@@ -73,16 +90,19 @@ const TokenInfo = ({ onClose }) => {
   }, []);
 
   return (
-    <div className="swap-container">
-      <div className="swap-box">
-        <h2 className="token-info-title">Token Info</h2>
+    <div className="token-info-container">
+      <animated.div 
+        className="token-info-box" 
+        style={slideAnimation}
+      >
+        <h2 className="token-info-title">Token Analytics</h2>
         {loading ? (
           <p className="text-arcade">Loading analytics...</p>
         ) : error ? (
           <p className="text-arcade">Error: {error}</p>
         ) : (
           <>
-            <div className="transaction-details">
+            <div className="info-cards-grid">
               {infoCards.map(card => (
                 <div
                   key={card.key}
@@ -112,7 +132,7 @@ const TokenInfo = ({ onClose }) => {
                     rel="noopener noreferrer"
                     className="rugcheck-button"
                   >
-                    RUG CHECK
+                    🛡️ RUG CHECK
                   </a>
                   <a 
                     href={`https://gmgn.ai/sol/token/solscan_${analytics.mintAddress}`}
@@ -120,7 +140,7 @@ const TokenInfo = ({ onClose }) => {
                     rel="noopener noreferrer"
                     className="gmgn-button"
                   >
-                    GMGN
+                    📊 GMGN ANALYTICS
                   </a>
                 </>
               )}
@@ -130,7 +150,7 @@ const TokenInfo = ({ onClose }) => {
             </div>
           </>
         )}
-      </div>
+      </animated.div>
     </div>
   );
 };
