@@ -9,8 +9,6 @@ class RpcService {
 
   async makeRpcRequest(method, params = []) {
     try {
-      console.log(`Making RPC request: ${method}`);
-      
       const response = await axios.post(this.rpcEndpoint, {
         method,
         params

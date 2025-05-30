@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "../App.css";
 import axios from "axios";
 import SwapComponent from './SwapComponent';
@@ -11,6 +11,12 @@ const ViewToken = () => {
     const [latestTransaction, setLatestTransaction] = useState(null);
     const [showSwap, setShowSwap] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
+    const [isWalletVerified, setIsWalletVerified] = useState(false);
+
+    // Wrap setIsWalletVerified in useCallback to prevent unnecessary re-renders
+    const handleSetWalletVerified = useCallback((verified) => {
+        setIsWalletVerified(verified);
+    }, []);
 
     useEffect(() => {
         const fetchLatestTransaction = async () => {
@@ -153,12 +159,15 @@ const ViewToken = () => {
                     <p>Scanning for latest token launches...</p>
                 )}
             </div>
+           
             {showSwap && latestTransaction?.mint && (
                 <SwapComponent
                     tokenMint={latestTransaction.mint}
                     tokenName={latestTransaction.name || 'Unknown Token'}
                     tokenSymbol={latestTransaction.symbol || '???'}
                     onClose={() => setShowSwap(false)}
+                    isWalletVerified={isWalletVerified}
+                    setIsWalletVerified={handleSetWalletVerified}
                 />
             )}
             {showInfo && (

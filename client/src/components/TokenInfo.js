@@ -74,7 +74,6 @@ const TokenInfo = ({ onClose }) => {
     setLoading(true);
     axios.get(`${config.API_BASE_URL}/api/latest-transaction/analytics`)
       .then(res => {
-        console.log("Analytics API response:", res.data);
         if (res.data.success) {
           setAnalytics(res.data.data);
         } else {

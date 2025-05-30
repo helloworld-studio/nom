@@ -25,7 +25,6 @@
 
 body {
   font-family: -apple-system, 'SF Pro Display', system-ui;
-  background: #F2F2F7;
   color: #000000;
   line-height: 1.25;
   -webkit-font-smoothing: antialiased;
@@ -126,7 +125,6 @@ body {
 
 .token-header-container {
   padding: 0.6875rem 0;
-  border-bottom: 0.03125rem solid rgba(0, 0, 0, 0.05);
 }
 
 .token-logo {
@@ -140,7 +138,6 @@ body {
   width: 20rem;
   height: 20rem;
   border-radius: 0.5rem;
-  background: #F2F2F7;
   text-align: center;
   line-height: 2.5rem;
   margin-bottom: 0.1rem;

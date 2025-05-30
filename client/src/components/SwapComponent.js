@@ -16,11 +16,12 @@ const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3u
 const NOM_TOKEN_MINT = "2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk";
 const NOM_POOL_ID = "949rM1nZto1ZGYP5Mxwrfvwhr5CxRbVTsHaCL9S73pLu";
 
-const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
+const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVerified, setIsWalletVerified }) => {
     // Get wallet properties including signMessage
     const { publicKey, connected, signTransaction, signMessage } = useWallet();
-    const [isVerified, setIsVerified] = useState(false);
-    const [error, setError] = useState(null); // Keep this for future use
+    // Remove the local isVerified state
+    // const [isVerified, setIsVerified] = useState(false);
+    const [error, setError] = useState(null);
     const [walletBalance, setWalletBalance] = useState(0);
 
     // Existing state
@@ -61,31 +62,47 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
     // Update the verifyWalletOwnership useCallback (around line 75-95)
     const verifyWalletOwnership = useCallback(async () => {
     if (!connected || !publicKey || !signMessage) {
-        setIsVerified(false);
+        setIsWalletVerified(false);
         return;
     }
+    
+    // Skip if already verified for this wallet
+    if (isWalletVerified) {
+        return;
+    }
+    
     try {
         const message = `Verify wallet ownership for Nom App: ${publicKey.toString()} at ${Date.now()}`;
         const encodedMessage = new TextEncoder().encode(message);
         await signMessage(encodedMessage);
-        setIsVerified(true);
+        setIsWalletVerified(true);
         toast.success("Wallet verified successfully!");
     } catch (err) {
         console.error("Wallet verification failed:", err);
-        setIsVerified(false);
+        setIsWalletVerified(false);
         setError("Wallet verification failed. Please try again.");
         toast.error("Wallet verification failed");
     }
-    }, [connected, publicKey, signMessage, setIsVerified, setError]); // Add signMessage to dependency array
+    }, [connected, publicKey, signMessage, setIsWalletVerified, isWalletVerified]); // Add isWalletVerified back
 
-    // Fetch wallet balance (SOL balance)
+    // Simplified verification effect - remove verificationAttempted state
+    useEffect(() => {
+        if (connected && publicKey && !isWalletVerified) {
+            setError(null);
+            verifyWalletOwnership();
+        } else if (!connected) {
+            setIsWalletVerified(false);
+        }
+    }, [connected, publicKey, isWalletVerified, verifyWalletOwnership, setIsWalletVerified]); // Add setIsWalletVerified
+
+    // Update balance fetch to use the prop
     useEffect(() => {
         const fetchSolBalance = async () => {
-            if (publicKey && connected && isVerified) {
+            if (publicKey && connected && isWalletVerified) {
                 try {
                     const balanceLamports = await rpcService.getBalance(publicKey);
                     const balanceSol = balanceLamports / LAMPORTS_PER_SOL;
-                    setWalletBalance(balanceSol); // Use for general SOL balance
+                    setWalletBalance(balanceSol);
                     setError(null);
                 } catch (fetchError) {
                     console.error("Failed to fetch SOL balance:", fetchError);
@@ -94,25 +111,9 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
             }
         };
         fetchSolBalance();
-    }, [publicKey, connected, isVerified, setWalletBalance, setError]); // Removed setBalance from dependency array
+    }, [publicKey, connected, isWalletVerified]);
 
-    // Verify wallet when connected or public key changes
-    // Add this state to track if verification has been attempted (around line 25-30 with other state variables)
-    const [verificationAttempted, setVerificationAttempted] = useState(false);
-    
-    // Replace the existing useEffect for wallet verification (around line 100-110)
-    useEffect(() => {
-        if (connected && publicKey && !verificationAttempted) {
-            setError(null);
-            verifyWalletOwnership();
-            setVerificationAttempted(true); // Mark verification as attempted
-        } else if (!connected) {
-            setIsVerified(false);
-            setVerificationAttempted(false); // Reset when disconnected
-        }
-    }, [connected, publicKey, verifyWalletOwnership, setError, setIsVerified, verificationAttempted]);
-
-    // Check for required NOM token
+    // Update all other references from isVerified to isWalletVerified
     useEffect(() => {
         const checkRequiredToken = async () => {
             if (!publicKey || !connected) { // Check publicKey and connected status

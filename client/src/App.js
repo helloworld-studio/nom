@@ -23,7 +23,7 @@ const LoadingScreen = () => {
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
-          return 0; // Reset for continuous animation
+          return 0; 
         }
         return prev + 2;
       });
@@ -41,7 +41,7 @@ const LoadingScreen = () => {
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="loading-text">Loading</div>
+        <div className="loading-text">Loading Network Observer for Memecoins </div>
       </div>
     </div>
   );
