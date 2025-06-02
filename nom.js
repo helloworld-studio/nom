@@ -314,9 +314,58 @@ app.post("/api/analyze", async (req, res) => {
     }
 });
 
-app.post("/api/rpc", async (req, res) => {
+app.post('/api/rpc', rpcLimiter, async (req, res) => {
   try {
     const { method, params } = req.body;
+    
+    if (method === 'getRpcPoolInfo') {
+        const { poolId } = params[0];
+        
+        tokenMonitor.formatLog(`Fetching Raydium pool info for: ${poolId}`, "info");
+        
+        try {
+            const raydium = await initSdk();
+            const poolInfo = await raydium.launchpad.getRpcPoolInfo({ 
+                poolId: new PublicKey(poolId) 
+            });
+            
+            // Get token decimals from mint accounts
+            const mintAInfo = await connection.getAccountInfo(poolInfo.mintA);
+            const mintBInfo = await connection.getAccountInfo(poolInfo.mintB);
+            
+            let mintDecimalsA = 9; // Default to 9 if we can't get it
+            let mintDecimalsB = 9;
+            
+            if (mintAInfo?.data) {
+                mintDecimalsA = mintAInfo.data.readUInt8(44); // Decimals at offset 44
+            }
+            
+            if (mintBInfo?.data) {
+                mintDecimalsB = mintBInfo.data.readUInt8(44);
+            }
+            
+            // Add decimals to the pool info response
+            const enhancedPoolInfo = {
+                ...poolInfo,
+                mintDecimalsA,
+                mintDecimalsB
+            };
+            
+            tokenMonitor.formatLog(`Pool info enhanced with decimals A:${mintDecimalsA}, B:${mintDecimalsB}`, "info");
+            
+            res.json({ 
+                success: true,
+                result: enhancedPoolInfo
+            });
+        } catch (error) {
+            tokenMonitor.formatLog(`Error fetching pool info: ${error.message}`, "error");
+            res.status(500).json({ 
+                error: 'Failed to fetch pool info',
+                message: error.message
+            });
+        }
+        return;
+    }
     
     const allowedMethods = [
       'getAccountInfo', 'getBalance', 'getBlockHeight', 'getBlockTime',
@@ -325,7 +374,8 @@ app.post("/api/rpc", async (req, res) => {
       'getRecentBlockhash', 'getSignatureStatuses', 'getSlot',
       'getTokenAccountBalance', 'getTokenAccountsByOwner', 'getTokenSupply',
       'getTransaction', 'getVersion', 'requestAirdrop',
-      'sendTransaction', 'confirmTransaction'
+      'sendTransaction', 'confirmTransaction',
+      'getRpcPoolInfo'  
     ];
     
     if (!method || !allowedMethods.includes(method)) {

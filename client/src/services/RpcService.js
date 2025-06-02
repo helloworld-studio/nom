@@ -58,6 +58,27 @@ class RpcService {
       options
     ]);
   }
+
+  // Add missing methods that SwapComponent needs
+  async getRpcPoolInfo({ poolId }) {
+    console.log('🔍 RpcService.getRpcPoolInfo called with poolId:', poolId.toString());
+    return this.makeRpcRequest('getRpcPoolInfo', [{ poolId: poolId.toString() }]);
+  }
+
+  async getAccountInfo(publicKey) {
+    console.log('🔍 RpcService.getAccountInfo called with publicKey:', publicKey.toString());
+    return this.makeRpcRequest('getAccountInfo', [publicKey.toString(), { encoding: 'base64' }]);
+  }
+
+  async sendRawTransaction(serializedTransaction, options = {}) {
+    console.log('🔍 RpcService.sendRawTransaction called');
+    return this.makeRpcRequest('sendRawTransaction', [serializedTransaction, options]);
+  }
+
+  async confirmTransaction(signature, commitment = 'confirmed') {
+    console.log('🔍 RpcService.confirmTransaction called with signature:', signature);
+    return this.makeRpcRequest('confirmTransaction', [signature, { commitment }]);
+  }
 }
 
 // Create a singleton instance

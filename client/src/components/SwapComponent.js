@@ -1,3 +1,4 @@
+// Add logging at the top of the component after imports
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import { TxVersion, Curve, PlatformConfig, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
@@ -95,66 +96,101 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
         }
     }, [connected, publicKey, isWalletVerified, verifyWalletOwnership, setIsWalletVerified]); // Add setIsWalletVerified
 
-    // Update balance fetch to use the prop
+    // Update balance fetch to use the prop with enhanced logging
     useEffect(() => {
         const fetchSolBalance = async () => {
             if (publicKey && connected && isWalletVerified) {
                 try {
+                    console.log('🔍 Attempting to fetch SOL balance for:', publicKey.toString());
+                    console.log('🔍 RPC Service available:', !!rpcService);
+                    console.log('🔍 RPC Service getBalance method:', typeof rpcService.getBalance);
+                    
                     const balanceLamports = await rpcService.getBalance(publicKey);
+                    console.log('✅ Successfully fetched balance:', balanceLamports);
+                    
                     const balanceSol = balanceLamports / LAMPORTS_PER_SOL;
                     setWalletBalance(balanceSol);
                     setError(null);
                 } catch (fetchError) {
-                    console.error("Failed to fetch SOL balance:", fetchError);
-                    setError("Failed to fetch SOL balance.");
+                    console.error('❌ Failed to fetch SOL balance:', fetchError);
+                    console.error('❌ Error details:', {
+                        message: fetchError.message,
+                        stack: fetchError.stack,
+                        name: fetchError.name,
+                        code: fetchError.code
+                    });
+                    setError(`Failed to fetch SOL balance: ${fetchError.message}`);
+                    toast.error(`RPC Error: ${fetchError.message}`);
                 }
+            } else {
+                console.log('⚠️ Skipping balance fetch - conditions not met:', {
+                    publicKey: !!publicKey,
+                    connected,
+                    isWalletVerified
+                });
             }
         };
         fetchSolBalance();
     }, [publicKey, connected, isWalletVerified]);
 
-    // Update all other references from isVerified to isWalletVerified
+    // Update checkRequiredToken with enhanced logging
     useEffect(() => {
         const checkRequiredToken = async () => {
-            if (!publicKey || !connected) { // Check publicKey and connected status
+            if (!publicKey || !connected) {
+                console.log('⚠️ Skipping token check - wallet not ready:', { publicKey: !!publicKey, connected });
                 setHasRequiredToken(false);
                 return;
             }
             
             try {
+                console.log('🔍 Checking for required NOM token...');
                 const requiredTokenMintPk = new PublicKey(NOM_TOKEN_MINT);
+                console.log('🔍 Required token mint:', requiredTokenMintPk.toString());
+                
                 const tokenAccountsResponse = await rpcService.getTokenAccountsByOwner(
-                    publicKey, // Use publicKey from useWallet()
+                    publicKey,
                     TOKEN_PROGRAM_ID
                 );
                 
+                console.log('🔍 Token accounts response:', tokenAccountsResponse);
+                
                 if (tokenAccountsResponse.error) {
-                    console.error('Error fetching token accounts:', tokenAccountsResponse.error);
+                    console.error('❌ Error fetching token accounts:', tokenAccountsResponse.error);
                     setHasRequiredToken(false);
                     return;
                 }
                 
                 const accounts = tokenAccountsResponse.value || tokenAccountsResponse.result?.value || [];
+                console.log('🔍 Found token accounts:', accounts.length);
+                
                 const requiredTokenAccount = accounts.find(account => 
                     account.account.data.parsed?.info?.mint === requiredTokenMintPk.toString()
                 );
 
                 if (requiredTokenAccount) {
                     const tokenAmount = Number(requiredTokenAccount.account.data.parsed.info.tokenAmount.uiAmount);
+                    console.log('✅ Found NOM token with amount:', tokenAmount);
                     if (tokenAmount > 0) {
                         setHasRequiredToken(true);
                         return;
                     }
                 }
+                console.log('⚠️ No NOM token found or zero balance');
                 setHasRequiredToken(false);
             } catch (error) {
-                console.error('Error checking required NOM token:', error);
+                console.error('❌ Error checking required NOM token:', error);
+                console.error('❌ Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                });
                 setHasRequiredToken(false);
+                toast.error(`Token check failed: ${error.message}`);
             }
         };
 
         checkRequiredToken();
-    }, [publicKey, connected]); // Add publicKey and connected as dependencies
+    }, [publicKey, connected]);
 
     const getPoolId = async (mintA, mintB) => {
         if (mintA.toString() === NOM_TOKEN_MINT) {
@@ -164,44 +200,55 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
     };
 
     const calculateSwap = async (inputAmount) => {
-        // ... (rest of calculateSwap, ensure it uses component state and props correctly)
-        // Make sure fixedTokenData.mint is valid
         setToAmount(''); 
         if (!fixedTokenData.mint || inputAmount <= 0) {
-            console.log("Calculation skipped: Invalid input amount or tokenMint missing");
+            console.log('⚠️ Calculation skipped: Invalid input amount or tokenMint missing');
             return;
         }
 
         try {
-            console.log(`Calculating swap for ${inputAmount} SOL to ${fixedTokenData.mint}`);
-            // const raydium = await initSdk(); // Commented out as it's unused
+            console.log('🔄 Starting swap calculation...');
+            console.log('🔍 Input amount:', inputAmount, 'SOL');
+            console.log('🔍 Target token:', fixedTokenData.mint);
+            console.log('🔍 RPC Service available for calculation:', !!rpcService);
+            
             const mintA = new PublicKey(fixedTokenData.mint);
             const mintB = NATIVE_MINT;
             const inAmount = new BN(Math.floor(inputAmount * LAMPORTS_PER_SOL));
-            console.log("Input lamports (amountB):", inAmount.toString());
+            console.log('🔍 Input lamports (amountB):', inAmount.toString());
 
             const poolId = await getPoolId(mintA, mintB);
-            console.log("Pool ID:", poolId.toString());
+            console.log('🔍 Pool ID:', poolId.toString());
+            
+            console.log('🔍 Calling rpcService.getRpcPoolInfo...');
             const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
+            console.log('🔍 Pool info response:', poolInfoResponse);
+            
             const poolInfo = poolInfoResponse.result;
-            console.log("Pool Info:", poolInfo);
+            console.log('🔍 Pool Info:', poolInfo);
 
             if (!poolInfo || typeof poolInfo.mintDecimalsA !== 'number') {
-                 console.error("Invalid poolInfo or mintDecimalsA missing/invalid", poolInfo);
-                 toast.error('Could not get valid pool info for this token.');
-                 return;
+                console.error('❌ Invalid poolInfo or mintDecimalsA missing/invalid', poolInfo);
+                toast.error('Could not get valid pool info for this token.');
+                return;
             }
-             console.log("Token Decimals (decimalsA):", poolInfo.mintDecimalsA);
+            console.log('✅ Token Decimals (decimalsA):', poolInfo.mintDecimalsA);
 
+            console.log('🔍 Calling rpcService.getAccountInfo for platform data...');
             const platformDataResponse = await rpcService.getAccountInfo(poolInfo.platformId);
+            console.log('🔍 Platform data response:', platformDataResponse);
+            
             const platformData = platformDataResponse.result;
-            if (!platformData) {
-                console.error("Could not get platform account info");
+            if (!platformData || !platformData.data || !platformData.data[0]) {
+                console.error('❌ Could not get platform account info or account has no data');
                 toast.error('Could not get platform info for this token.');
                 return;
             }
-            const platformInfo = PlatformConfig.decode(platformData.data);
-            console.log('Platform Info:', platformInfo);
+            
+            // Convert base64 string to Uint8Array
+            const platformDataBytes = new Uint8Array(Buffer.from(platformData.data[0], 'base64'));
+            const platformInfo = PlatformConfig.decode(platformDataBytes);
+            console.log('✅ Platform Info:', platformInfo);
 
             if (!poolInfo.configInfo) {
                 console.error("poolInfo.configInfo is missing", poolInfo);
