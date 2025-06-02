@@ -352,7 +352,7 @@ class TokenMonitor {
               return;
             }
             
-            // Find new tokens - simplified without extra validation
+            // Find new tokens - filter for LetsBonk only
             for (const balance of tx.meta.postTokenBalances) {
               if (!balance.mint || 
                   balance.mint === "So11111111111111111111111111111111111111112" ||
@@ -360,16 +360,15 @@ class TokenMonitor {
                 continue;
               }
               
-              // Remove the final mint creation validation
+              // Filter to only process LetsBonk tokens
+              if (!this.isLetsBonkToken(balance.mint)) {
+                continue;
+              }
               
               // Add to known tokens immediately to prevent duplicates
               this.knownTokens.add(balance.mint);
               
-              // Check if it's a LetsBonk token for enhanced logging
-              const isLetsBonk = this.isLetsBonkToken(balance.mint);
-              const tokenType = isLetsBonk ? "LetsBonk" : "Other Raydium";
-                
-              this.formatLog(`🎉 NEW ${tokenType.toUpperCase()} TOKEN CREATED!`, "success");
+              this.formatLog(`🎉 NEW LETSBONK TOKEN CREATED!`, "success");
               this.formatLog(`├─ Mint Address: ${balance.mint}`, "info");
               this.formatLog(`├─ Transaction: ${logs.signature}`, "info");
               this.formatLog(`├─ Created: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
