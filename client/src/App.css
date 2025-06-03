@@ -202,6 +202,10 @@ body {
   border-top: 0.03125rem solid rgba(0, 0, 0, 0.05);
 }
 
+.mint-address:hover,.creator-address:hover,.metadata-link:hover {
+  color: #00eeff;
+}
+
 .button-wrapper {
   padding: 0.5rem 0;
   display: flex;

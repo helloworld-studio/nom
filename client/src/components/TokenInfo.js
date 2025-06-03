@@ -58,8 +58,10 @@ const TokenInfo = ({ onClose }) => {
 
   useEffect(() => {
     setLoading(true);
+    console.log('Fetching from:', `${config.API_BASE_URL}/api/latest-transaction/analytics`);
     axios.get(`${config.API_BASE_URL}/api/latest-transaction/analytics`)
       .then(res => {
+        console.log('Response:', res.data);
         if (res.data.success) {
           setAnalytics(res.data.data);
         } else {
@@ -67,6 +69,7 @@ const TokenInfo = ({ onClose }) => {
         }
       })
       .catch(err => {
+        console.error('Error:', err);
         setError(err.message);
       })
       .finally(() => {
@@ -99,7 +102,7 @@ const TokenInfo = ({ onClose }) => {
                   <div className="info-card-icon">{card.icon}</div>
                   <div className="info-card-value">
                     {card.valueKey === "bondingCurve" 
-                      ? `${analytics?.bondingCurveProgress || "0.00"}%`
+                      ? `${analytics?.bondingCurve?.progress || "0.00"}%`
                       : `${analytics?.[card.valueKey] ?? "N/A"}${typeof analytics?.[card.valueKey] === "number" ? "%" : ""}`
                     }
                   </div>
