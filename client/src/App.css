@@ -353,6 +353,24 @@ button:hover {
   background: #1E7E34;
 }
 
+.dexscreener-button {
+  background: #f18d00;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  text-decoration: none;
+  text-align: center;
+  border: none;
+  letter-spacing: -0.025em;
+  transition: all 0.2s ease-in-out;
+}
+
+.dexscreener-button:hover {
+  background: #2c2c2e;
+}
+
 .close-button {
   background: rgba(60, 60, 67, 0.03);
   color: #007AFF;

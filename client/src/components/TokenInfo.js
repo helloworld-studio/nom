@@ -20,24 +20,10 @@ const infoCards = [
     color: "green"
   },
   {
-    key: "snipersHoldersPct",
-    label: "Snipers H.",
-    icon: "🎯",
-    valueKey: "snipersHoldersPct",
-    color: "green"
-  },
-  {
     key: "insidersPct",
     label: "Insiders",
     icon: "👻",
     valueKey: "insidersPct",
-    color: "red"
-  },
-  {
-    key: "bundlersPct",
-    label: "Bundlers",
-    icon: "🧑‍🤝‍🧑",
-    valueKey: "bundlersPct",
     color: "red"
   },
   {
@@ -131,7 +117,15 @@ const TokenInfo = ({ onClose }) => {
                     rel="noopener noreferrer"
                     className="rugcheck-button"
                   >
-                    🛡️ RUG CHECK
+                    RUGCHECK
+                  </a>
+                  <a 
+                    href={`https://dexscreener.com/solana/${analytics.mintAddress}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="dexscreener-button"
+                  >
+                    DEX
                   </a>
                   <a 
                     href={`https://gmgn.ai/sol/token/solscan_${analytics.mintAddress}`}
@@ -139,7 +133,7 @@ const TokenInfo = ({ onClose }) => {
                     rel="noopener noreferrer"
                     className="gmgn-button"
                   >
-                    📊 GMGN ANALYTICS
+                    GMGN
                   </a>
                 </>
               )}
