@@ -116,7 +116,30 @@ const tokenMonitor = new TokenMonitor(connection, metaplex);
 
 const initSdk = async () => {
   const { Raydium } = require('@raydium-io/raydium-sdk-v2');
-  const raydium = new Raydium({ connection });
+  
+  // Create a custom connection that uses the RPC proxy for consistency
+  class ProxiedConnection extends Connection {
+    constructor() {
+      super(RPC_ENDPOINT, {
+        commitment: "confirmed",
+        confirmTransactionInitialTimeout: 60000,
+      });
+    }
+
+    async _rpcRequest(method, args) {
+      try {
+        // Use the same RPC proxy that the frontend uses
+        return await rpcProxy.makeRpcRequest(method, args);
+      } catch (error) {
+        console.error(`Proxied RPC request failed for ${method}:`, error.message);
+        // Fall back to direct connection if proxy fails
+        return await super._rpcRequest(method, args);
+      }
+    }
+  }
+  
+  const proxiedConnection = new ProxiedConnection();
+  const raydium = new Raydium({ connection: proxiedConnection });
   return raydium;
 };
 
@@ -315,8 +338,19 @@ app.post("/api/analyze", async (req, res) => {
 });
 
 app.post('/api/rpc', rpcLimiter, async (req, res) => {
+  const requestId = Date.now();
+  
   try {
     const { method, params } = req.body;
+    
+    // Enhanced logging for getAccountInfo
+    if (method === 'getAccountInfo') {
+      console.log(`\n🔍 [nom.js:${requestId}] === FRONTEND REQUEST DEBUG START ===`);
+      console.log(`🔍 [nom.js:${requestId}] Received getAccountInfo request`);
+      console.log(`🔍 [nom.js:${requestId}] Request body:`, JSON.stringify(req.body, null, 2));
+      console.log(`🔍 [nom.js:${requestId}] Request headers:`, JSON.stringify(req.headers, null, 2));
+      console.log(`🔍 [nom.js:${requestId}] Client IP:`, req.ip || req.connection.remoteAddress);
+    }
     
     if (method === 'getRpcPoolInfo') {
         const { poolId } = params[0];
@@ -374,19 +408,44 @@ app.post('/api/rpc', rpcLimiter, async (req, res) => {
       'getRecentBlockhash', 'getSignatureStatuses', 'getSlot',
       'getTokenAccountBalance', 'getTokenAccountsByOwner', 'getTokenSupply',
       'getTransaction', 'getVersion', 'requestAirdrop',
-      'sendTransaction', 'confirmTransaction',
-      'getRpcPoolInfo'  
+      'sendTransaction', 'confirmTransaction', 'sendRawTransaction',
+      'getRpcPoolInfo',
+      // Add these additional methods that Raydium SDK might need:
+      'getProgramAccounts', 'getMultipleAccounts', 'simulateTransaction',
+      'getConfirmedTransaction', 'getConfirmedSignaturesForAddress2',
+      'getTokenLargestAccounts', 'getFeeForMessage', 'getRecentPerformanceSamples'
     ];
     
     if (!method || !allowedMethods.includes(method)) {
+      if (method === 'getAccountInfo') {
+        console.log(`❌ [nom.js:${requestId}] Method not allowed:`, method);
+      }
       return res.status(400).json({ 
         error: 'Invalid or disallowed method'
       });
     }
     
+    if (method === 'getAccountInfo') {
+      console.log(`🔍 [nom.js:${requestId}] Calling rpcProxy.makeRpcRequest...`);
+    }
+    
     const result = await rpcProxy.makeRpcRequest(method, params);
+    
+    // Enhanced response logging for getAccountInfo
+    if (method === 'getAccountInfo') {
+      console.log(`🔍 [nom.js:${requestId}] RPC result received:`, JSON.stringify(result, null, 2));
+      console.log(`🔍 [nom.js:${requestId}] Sending response to frontend...`);
+      console.log(`🔍 [nom.js:${requestId}] === FRONTEND REQUEST DEBUG END ===\n`);
+    }
+    
     res.json(result);
   } catch (error) {
+    if (req.body.method === 'getAccountInfo') {
+      console.log(`\n❌ [nom.js:${requestId}] === FRONTEND ERROR DEBUG START ===`);
+      console.log(`❌ [nom.js:${requestId}] getAccountInfo error:`, error.message);
+      console.log(`❌ [nom.js:${requestId}] Error stack:`, error.stack);
+      console.log(`❌ [nom.js:${requestId}] === FRONTEND ERROR DEBUG END ===\n`);
+    }
     console.error('RPC proxy error:', error.message);
     res.status(500).json({ 
       error: 'RPC request failed',

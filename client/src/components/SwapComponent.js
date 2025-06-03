@@ -1,35 +1,33 @@
-// Add logging at the top of the component after imports
-import React, { useState, useEffect, useCallback } from 'react';
+// Clean up the imports - remove unused ones
+import React, { useState, useEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
-import { TxVersion, Curve, PlatformConfig, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
 import { PublicKey, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js';
-import { NATIVE_MINT, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token'; // Remove NATIVE_MINT
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import BN from 'bn.js';
-import Decimal from 'decimal.js';
+// Remove Decimal, initSdk imports since we don't need them anymore
 import { toast } from 'react-toastify';
-import { initSdk } from '../config';
 import axios from 'axios';
 import rpcService from '../services/RpcService';
+import { TxVersion, Curve, PlatformConfig, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
+import { NATIVE_MINT } from '@solana/spl-token';
+import BN from 'bn.js';
+import Decimal from 'decimal.js';
+import { initSdk } from '../config';
 
 const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 const NOM_TOKEN_MINT = "2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk";
 const NOM_POOL_ID = "949rM1nZto1ZGYP5Mxwrfvwhr5CxRbVTsHaCL9S73pLu";
 
 const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVerified, setIsWalletVerified }) => {
-    // Get wallet properties including signMessage
-    const { publicKey, connected, signTransaction, signMessage } = useWallet();
-    // Remove the local isVerified state
-    // const [isVerified, setIsVerified] = useState(false);
+    const { publicKey, connected, signTransaction } = useWallet();
+    
+    // ... rest of your existing state variables ...
     const [error, setError] = useState(null);
     const [walletBalance, setWalletBalance] = useState(0);
-
-    // Existing state
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    // const [balance, setBalance] = useState(0); // Removed, redundant with walletBalance
     const [hasRequiredToken, setHasRequiredToken] = useState(false);
     const [slippage, setSlippage] = useState(1);
     const [customSlippage, setCustomSlippage] = useState('');
@@ -57,49 +55,23 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
           friction: 20,
           mass: 1
         }
-      });
+    });
 
-    // Wallet verification logic
-    // Update the verifyWalletOwnership useCallback (around line 75-95)
-    const verifyWalletOwnership = useCallback(async () => {
-    if (!connected || !publicKey || !signMessage) {
-        setIsWalletVerified(false);
-        return;
-    }
-    
-    // Skip if already verified for this wallet
-    if (isWalletVerified) {
-        return;
-    }
-    
-    try {
-        const message = `Verify wallet ownership for Nom App: ${publicKey.toString()} at ${Date.now()}`;
-        const encodedMessage = new TextEncoder().encode(message);
-        await signMessage(encodedMessage);
-        setIsWalletVerified(true);
-        toast.success("Wallet verified successfully!");
-    } catch (err) {
-        console.error("Wallet verification failed:", err);
-        setIsWalletVerified(false);
-        setError("Wallet verification failed. Please try again.");
-        toast.error("Wallet verification failed");
-    }
-    }, [connected, publicKey, signMessage, setIsWalletVerified, isWalletVerified]); // Add isWalletVerified back
-
-    // Simplified verification effect - remove verificationAttempted state
+    // Simplified verification effect
     useEffect(() => {
-        if (connected && publicKey && !isWalletVerified) {
+        if (connected && publicKey) {
+            console.log('✅ Wallet connected, setting as verified');
+            setIsWalletVerified(true);
             setError(null);
-            verifyWalletOwnership();
         } else if (!connected) {
             setIsWalletVerified(false);
         }
-    }, [connected, publicKey, isWalletVerified, verifyWalletOwnership, setIsWalletVerified]); // Add setIsWalletVerified
+    }, [connected, publicKey, setIsWalletVerified]);
 
     // Update balance fetch to use the prop with enhanced logging
     useEffect(() => {
         const fetchSolBalance = async () => {
-            if (publicKey && connected && isWalletVerified) {
+            if (publicKey && connected) {
                 try {
                     console.log('🔍 Attempting to fetch SOL balance for:', publicKey.toString());
                     console.log('🔍 RPC Service available:', !!rpcService);
@@ -125,13 +97,12 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
             } else {
                 console.log('⚠️ Skipping balance fetch - conditions not met:', {
                     publicKey: !!publicKey,
-                    connected,
-                    isWalletVerified
+                    connected
                 });
             }
         };
         fetchSolBalance();
-    }, [publicKey, connected, isWalletVerified]);
+    }, [publicKey, connected]);
 
     // Update checkRequiredToken with enhanced logging
     useEffect(() => {
@@ -199,103 +170,180 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
         return getPdaLaunchpadPoolId(new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID), mintA, mintB).publicKey;
     };
 
+    // Use the launchpad-specific calculation approach (like the working oldswap.js)
     const calculateSwap = async (inputAmount) => {
         setToAmount(''); 
         if (!fixedTokenData.mint || inputAmount <= 0) {
-            console.log('⚠️ Calculation skipped: Invalid input amount or tokenMint missing');
+            console.log("Calculation skipped: Invalid input amount or tokenMint missing");
             return;
         }
 
         try {
-            console.log('🔄 Starting swap calculation...');
-            console.log('🔍 Input amount:', inputAmount, 'SOL');
-            console.log('🔍 Target token:', fixedTokenData.mint);
-            console.log('🔍 RPC Service available for calculation:', !!rpcService);
+            console.log(`Calculating launchpad swap for ${inputAmount} SOL to ${fixedTokenData.mint}`);
             
+            // First try Trade API to see if token has graduated
+            const inputMint = 'So11111111111111111111111111111111111111112';
+            const outputMint = fixedTokenData.mint;
+            const amount = Math.floor(inputAmount * LAMPORTS_PER_SOL);
+            const slippageBps = Math.floor((slippage === 'custom' ? parseFloat(customSlippage) : slippage) * 100);
+            
+            try {
+                console.log('🔍 Checking if token has graduated to AMM...');
+                const quoteResponse = await axios.get(
+                    `https://transaction-v1.raydium.io/compute/swap-base-in?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&txVersion=V0`
+                );
+                
+                if (quoteResponse.data && quoteResponse.data.success && quoteResponse.data.data && quoteResponse.data.data.outputAmount) {
+                    // Token has graduated, use Trade API result
+                    const outputAmount = quoteResponse.data.data.outputAmount;
+                    const outputDecimals = quoteResponse.data.data.outputMint?.decimals || 6;
+                    const humanReadableAmount = (outputAmount / Math.pow(10, outputDecimals)).toFixed(outputDecimals);
+                    console.log(`✅ Token graduated - Expected output: ${humanReadableAmount} ${fixedTokenData.symbol}`);
+                    setToAmount(humanReadableAmount);
+                    return;
+                }
+            } catch (tradeApiError) {
+                console.log('🔍 Trade API failed, token likely still on launchpad bonding curve');
+            }
+
+            // Token is still on launchpad, use SDK calculation
+            console.log('🔍 Using launchpad bonding curve calculation...');
             const mintA = new PublicKey(fixedTokenData.mint);
             const mintB = NATIVE_MINT;
             const inAmount = new BN(Math.floor(inputAmount * LAMPORTS_PER_SOL));
-            console.log('🔍 Input lamports (amountB):', inAmount.toString());
 
             const poolId = await getPoolId(mintA, mintB);
-            console.log('🔍 Pool ID:', poolId.toString());
+            console.log("Launchpad Pool ID:", poolId.toString());
             
-            console.log('🔍 Calling rpcService.getRpcPoolInfo...');
+            // Use your working RPC approach for pool info
             const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
-            console.log('🔍 Pool info response:', poolInfoResponse);
-            
             const poolInfo = poolInfoResponse.result;
-            console.log('🔍 Pool Info:', poolInfo);
+            console.log("Launchpad Pool Info:", poolInfo);
 
             if (!poolInfo || typeof poolInfo.mintDecimalsA !== 'number') {
-                console.error('❌ Invalid poolInfo or mintDecimalsA missing/invalid', poolInfo);
-                toast.error('Could not get valid pool info for this token.');
+                console.error("Invalid poolInfo for launchpad token", poolInfo);
+                toast.error('Could not get valid pool info for this launchpad token.');
                 return;
             }
-            console.log('✅ Token Decimals (decimalsA):', poolInfo.mintDecimalsA);
 
-            console.log('🔍 Calling rpcService.getAccountInfo for platform data...');
+            // Get platform data using your working approach
             const platformDataResponse = await rpcService.getAccountInfo(poolInfo.platformId);
-            console.log('🔍 Platform data response:', platformDataResponse);
-            
             const platformData = platformDataResponse.result;
-            if (!platformData || !platformData.data || !platformData.data[0]) {
-                console.error('❌ Could not get platform account info or account has no data');
-                toast.error('Could not get platform info for this token.');
+            if (!platformData) {
+                console.error("Could not get platform account info for launchpad");
+                toast.error('Could not get platform info for launchpad token.');
                 return;
             }
-            
-            // Convert base64 string to Uint8Array
-            const platformDataBytes = new Uint8Array(Buffer.from(platformData.data[0], 'base64'));
-            const platformInfo = PlatformConfig.decode(platformDataBytes);
-            console.log('✅ Platform Info:', platformInfo);
+
+            // Decode platform data (using your working conversion method)
+            let platformInfo;
+            try {
+                if (platformData.data && platformData.data instanceof Uint8Array) {
+                    platformInfo = PlatformConfig.decode(platformData.data);
+                } else if (platformData.value && platformData.value.data) {
+                    const dataObj = platformData.value.data;
+                    const dataArray = Object.keys(dataObj)
+                        .sort((a, b) => parseInt(a) - parseInt(b))
+                        .map(key => dataObj[key]);
+                    const platformConfigData = new Uint8Array(dataArray);
+                    platformInfo = PlatformConfig.decode(platformConfigData);
+                } else {
+                    throw new Error('Unknown platform data format');
+                }
+            } catch (decodeError) {
+                console.error('Platform decode error:', decodeError);
+                toast.error('Failed to decode platform data');
+                return;
+            }
 
             if (!poolInfo.configInfo) {
-                console.error("poolInfo.configInfo is missing", poolInfo);
+                console.error("poolInfo.configInfo missing for launchpad");
                 toast.error('Pool configuration details are missing.');
                 return;
             }
 
+            // Convert fee rates to BN (your working conversion)
+            let protocolFeeRate;
+            if (typeof poolInfo.configInfo.tradeFeeRate === 'string') {
+                protocolFeeRate = new BN(poolInfo.configInfo.tradeFeeRate, 16);
+            } else if (poolInfo.configInfo.tradeFeeRate instanceof BN) {
+                protocolFeeRate = poolInfo.configInfo.tradeFeeRate;
+            } else {
+                protocolFeeRate = new BN(poolInfo.configInfo.tradeFeeRate);
+            }
+
+            console.log("Launchpad calculation - protocolFeeRate:", protocolFeeRate.toString());
+            console.log("Launchpad calculation - platformFeeRate:", platformInfo.feeRate.toString());
+
+            // Convert poolInfo fields to BN objects with proper hex detection
+            const convertToBN = (value, fieldName) => {
+                console.log(`🔍 Converting ${fieldName}:`, value, `(type: ${typeof value})`);
+                
+                if (value instanceof BN) return value;
+                if (typeof value === 'number') return new BN(value);
+                if (typeof value === 'string') {
+                    try {
+                        // Check if string contains hex characters (a-f)
+                        const isHex = /[a-fA-F]/.test(value) || /^[0-9a-fA-F]+$/.test(value);
+                        
+                        if (isHex) {
+                            console.log(`🔍 Converting ${fieldName} as hex: ${value}`);
+                            return new BN(value, 16);
+                        } else {
+                            console.log(`🔍 Converting ${fieldName} as decimal: ${value}`);
+                            return new BN(value, 10);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error converting ${fieldName} with value "${value}":`, error);
+                        return new BN(0);
+                    }
+                }
+                console.log(`🔍 Using default 0 for ${fieldName}`);
+                return new BN(0);
+            };
+
+            const poolInfoForCalculation = {
+                ...poolInfo,
+                virtualA: convertToBN(poolInfo.virtualA, 'virtualA'),
+                virtualB: convertToBN(poolInfo.virtualB, 'virtualB'),
+                realA: convertToBN(poolInfo.realA, 'realA'),
+                realB: convertToBN(poolInfo.realB, 'realB'),
+                epoch: convertToBN(poolInfo.epoch, 'epoch'),
+            };
+
+            console.log("🔍 Converted poolInfo fields to BN objects");
+            console.log("🔍 virtualA:", poolInfoForCalculation.virtualA.toString());
+            console.log("🔍 virtualB:", poolInfoForCalculation.virtualB.toString());
+
+            // Use Curve.buyExactIn for launchpad bonding curve calculation
             const res = Curve.buyExactIn({
-                poolInfo,
+                poolInfo: poolInfoForCalculation,
                 amountB: inAmount,
-                protocolFeeRate: poolInfo.configInfo.tradeFeeRate,
+                protocolFeeRate: protocolFeeRate,
                 platformFeeRate: platformInfo.feeRate,
                 curveType: poolInfo.configInfo.curveType,
                 shareFeeRate: new BN(0),
             });
 
             if (!res || !res.amountA) {
-                 console.error("Calculation result invalid", res);
-                 toast.error('Calculation failed.');
-                 return;
+                console.error("Launchpad calculation result invalid", res);
+                toast.error('Launchpad calculation failed.');
+                return;
             }
 
             const decimals = poolInfo.mintDecimalsA;
             const divisor = new Decimal(10).pow(decimals);
-            
             const expectedAmount = new Decimal(res.amountA.toString())
                 .div(divisor)
                 .toFixed(decimals);
-            
-            console.log("Calculated expected amount (string):", expectedAmount);
 
-            if (expectedAmount && !isNaN(parseFloat(expectedAmount))) {
-                 setToAmount(expectedAmount);
-            } else {
-                 console.error("Final calculated amount is invalid:", expectedAmount);
-                 toast.error('Calculation resulted in an invalid amount.');
-                 setToAmount('');
-            }
+            console.log(`✅ Launchpad bonding curve output: ${expectedAmount} ${fixedTokenData.symbol}`);
+            setToAmount(expectedAmount);
 
         } catch (error) {
-            if (error instanceof TypeError && error.message.includes("reading 'add'")) {
-                 console.error('Error calculating swap: Likely an undefined fee rate or issue within Curve.buyExactIn. Check logged values.', error);
-            } else {
-                console.error('Error calculating swap:', error);
-            }
+            console.error('Error calculating launchpad swap:', error);
             toast.error(`Calculation Error: ${error.message || 'Failed to calculate swap amount'}`);
-             setToAmount('');
+            setToAmount('');
         }
     };
 
@@ -323,51 +371,103 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
         }
     };
 
-    const getSlippageBasisPoints = () => {
-        if (slippage === 'custom' && customSlippage) {
-            return new BN(Math.floor(parseFloat(customSlippage) * 100));
-        }
-        return new BN(slippage * 100);
-    };
-
     const handleSwap = async () => {
-        if (isLoading || !fromAmount || !publicKey || !signTransaction) { // Use publicKey and signTransaction from useWallet
-             toast.error('Wallet not connected or transaction signing is unavailable.');
-             console.error("Wallet/swap readiness issue:", {isLoading, fromAmount, publicKey, signTransaction});
-             return;
+        if (isLoading || !fromAmount || !publicKey || !signTransaction) {
+            toast.error('Wallet not connected or transaction signing is unavailable.');
+            return;
         }
         setIsLoading(true);
 
         try {
+            console.log('🔄 Starting launchpad token swap...');
+            
+            // Check if token has graduated first
+            const inputMint = 'So11111111111111111111111111111111111111112';
+            const outputMint = fixedTokenData.mint;
+            const amount = Math.floor(parseFloat(fromAmount) * LAMPORTS_PER_SOL);
+            const slippageBps = Math.floor((slippage === 'custom' ? parseFloat(customSlippage) : slippage) * 100);
+            
+            try {
+                console.log('🔍 Checking if token has graduated...');
+                const quoteResponse = await axios.get(
+                    `https://transaction-v1.raydium.io/compute/swap-base-in?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&txVersion=V0`
+                );
+                
+                if (quoteResponse.data && quoteResponse.data.success && quoteResponse.data.data) {
+                    // Use Trade API for graduated tokens
+                    console.log('✅ Token graduated, using Trade API...');
+                    
+                    const txResponse = await axios.post('https://transaction-v1.raydium.io/transaction/swap-base-in', {
+                        computeUnitPriceMicroLamports: '100000',
+                        swapResponse: quoteResponse.data,
+                        txVersion: 'V0',
+                        wallet: publicKey.toString(),
+                        wrapSol: true,
+                        unwrapSol: false,
+                    });
+                    
+                    const txBuffer = Buffer.from(txResponse.data.data[0].transaction, 'base64');
+                    const transaction = VersionedTransaction.deserialize(txBuffer);
+                    const signedTransaction = await signTransaction(transaction);
+                    
+                    const signature = await rpcService.sendRawTransaction(signedTransaction.serialize(), {
+                        skipPreflight: false,
+                        preflightCommitment: "confirmed"
+                    });
+                    
+                    toast.success('Graduated token swap sent! Signature: ' + signature.substring(0,10) + '...');
+                    
+                    const confirmationResponse = await rpcService.confirmTransaction(signature, "confirmed");
+                    if (confirmationResponse.result.value.err) {
+                        throw new Error(`Transaction failed: ${confirmationResponse.result.value.err}`);
+                    }
+                    
+                    toast.success('Swap successful!');
+                    onClose();
+                    return;
+                }
+            } catch (tradeApiError) {
+                console.log('🔍 Trade API failed, using launchpad buyToken...');
+            }
+
+            // Use launchpad buyToken for bonding curve tokens
+            console.log('🔍 Using launchpad buyToken for bonding curve...');
             const raydium = await initSdk();
             raydium.setOwner(publicKey);
 
             const mintA = new PublicKey(fixedTokenData.mint);
             const mintB = NATIVE_MINT;
             const inAmount = new BN(Math.floor(parseFloat(fromAmount) * LAMPORTS_PER_SOL));
-            const slippageBasisPoints = getSlippageBasisPoints();
+            const slippageBasisPoints = new BN(slippageBps);
 
             const poolId = await getPoolId(mintA, mintB);
             const poolInfoResponse = await rpcService.getRpcPoolInfo({ poolId });
             const poolInfo = poolInfoResponse.result;
             
             if (!poolInfo || !poolInfo.configInfo) {
-                 console.error("Failed to get poolInfo or poolInfo.configInfo in handleSwap", poolInfo);
-                 toast.error('Could not retrieve pool configuration for swap.');
-                 setIsLoading(false);
-                 return;
+                throw new Error('Could not retrieve launchpad pool configuration');
             }
 
             const platformDataResponse = await rpcService.getAccountInfo(poolInfo.platformId);
             const platformData = platformDataResponse.result;
             if (!platformData) {
-                 console.error("Could not get platform account info in handleSwap");
-                 toast.error('Could not get platform info for swap.');
-                 setIsLoading(false);
-                 return;
+                throw new Error('Could not get launchpad platform info');
             }
-            const platformInfo = PlatformConfig.decode(platformData.data);
             
+            // Decode platform data
+            let platformInfo;
+            if (platformData.data && platformData.data instanceof Uint8Array) {
+                platformInfo = PlatformConfig.decode(platformData.data);
+            } else if (platformData.value && platformData.value.data) {
+                const dataObj = platformData.value.data;
+                const dataArray = Object.keys(dataObj)
+                    .sort((a, b) => parseInt(a) - parseInt(b))
+                    .map(key => dataObj[key]);
+                const platformConfigData = new Uint8Array(dataArray);
+                platformInfo = PlatformConfig.decode(platformConfigData);
+            }
+            
+            // Use launchpad buyToken (like in your working oldswap.js)
             const { transaction } = await raydium.launchpad.buyToken({
                 programId: new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID),
                 mintA,
@@ -379,29 +479,32 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
                 skipPreflight: false,
             });
 
-            if (!transaction) throw new Error("No transaction returned from buyToken");
+            if (!transaction) throw new Error("No transaction returned from launchpad buyToken");
 
-            const signedTransaction = await signTransaction(transaction); // Use signTransaction from useWallet
+            const signedTransaction = await signTransaction(transaction);
             const signature = await rpcService.sendRawTransaction(signedTransaction.serialize(), {
                 skipPreflight: false,
                 preflightCommitment: "confirmed"
             });
+            
+            toast.success('Launchpad swap sent! Signature: ' + signature.substring(0,10) + '...');
             
             const confirmationResponse = await rpcService.confirmTransaction(signature, "confirmed");
             if (confirmationResponse.result.value.err) {
                 throw new Error(`Transaction failed: ${confirmationResponse.result.value.err}`);
             }
             
-            toast.success('Swap successful!');
+            toast.success('Launchpad swap successful!');
+            
             if (publicKey) {
                 const updatedBalance = await rpcService.getBalance(publicKey);
-                // setBalance(updatedBalance / LAMPORTS_PER_SOL); // Replaced with setWalletBalance
                 setWalletBalance(updatedBalance / LAMPORTS_PER_SOL);
             }
+            
             onClose();
         } catch (error) {
-            console.error('Swap error:', error);
-            toast.error(error.message || 'Failed to complete swap');
+            console.error('Launchpad swap error:', error);
+            toast.error(`Swap failed: ${error.message || 'Unknown error'}`);
         } finally {
             setIsLoading(false);
         }
@@ -447,73 +550,86 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, isWalletVer
     };
 
     const buyNomToken = async () => {
-        if (!publicKey || !signTransaction) { // Use publicKey and signTransaction from useWallet
-            toast.error('Please connect and verify your wallet first');
+        if (!publicKey || !signTransaction) {
+            toast.error('Please connect your wallet first');
             return;
         }
         setIsLoading(true);
+        
         try {
-            const inputMint = NATIVE_MINT.toString();
-            const outputMint = NOM_TOKEN_MINT;
+            console.log('Getting swap quote...');
+            
+            // Copy the exact working approach from oldswap.js
+            const inputMint = 'So11111111111111111111111111111111111111112'; // SOL
+            const outputMint = '2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk'; // NOM
             const amount = Math.floor(parseFloat(quickBuyAmount) * LAMPORTS_PER_SOL);
             const slippageBps = 100; // 1%
+            const txVersion = 'V0';
             
             const quoteResponse = await axios.get(
-                `https://quote-api.raydium.io/v2/sdk/quote/swap?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&computeUnitPriceMicroLamports=10000`
+                `https://transaction-v1.raydium.io/compute/swap-base-in?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}&txVersion=${txVersion}`
             );
             
-            const { swapTransaction } = quoteResponse.data;
-            const transaction = VersionedTransaction.deserialize(Buffer.from(swapTransaction, 'base64'));
+            console.log('Quote received:', quoteResponse.data);
             
-            const signedTx = await signTransaction(transaction); // Use signTransaction from useWallet
+            const txResponse = await axios.post('https://transaction-v1.raydium.io/transaction/swap-base-in', {
+                computeUnitPriceMicroLamports: '100',
+                swapResponse: quoteResponse.data,
+                txVersion,
+                wallet: publicKey.toString(),
+                wrapSol: true,
+                unwrapSol: false,
+            });
+            
+            console.log('Transaction received:', txResponse.data);
+            
+            const txBuffer = Buffer.from(txResponse.data.data[0].transaction, 'base64');
+            const transaction = VersionedTransaction.deserialize(txBuffer);
+            
+            console.log('Signing transaction...');
+            const signedTx = await signTransaction(transaction);
+            
+            console.log('Sending transaction...');
             const signature = await rpcService.sendRawTransaction(signedTx.serialize());
             
-            toast.success('NOM token purchase sent! Signature: ' + signature.substring(0,10) + '...');
-            // Optionally, wait for confirmation and update balance
-            await rpcService.confirmTransaction(signature, "confirmed");
-            toast.success('NOM token purchase confirmed!');
+            console.log('Transaction sent:', signature);
+            toast.success('NOM token purchase sent!');
+            
+            // Update balance and check for NOM token
             if (publicKey) {
                 const updatedBalance = await rpcService.getBalance(publicKey);
-                // setBalance(updatedBalance / LAMPORTS_PER_SOL); // Replaced with setWalletBalance
                 setWalletBalance(updatedBalance / LAMPORTS_PER_SOL);
-                // Re-check NOM token balance
-                 const checkRequiredToken = async () => {
-                    if (!publicKey || !connected) { 
-                        setHasRequiredToken(false);
-                        return;
-                    }
+                
+                // Re-check NOM token balance after delay
+                setTimeout(async () => {
                     try {
                         const requiredTokenMintPk = new PublicKey(NOM_TOKEN_MINT);
                         const tokenAccountsResponse = await rpcService.getTokenAccountsByOwner(
                             publicKey, 
                             TOKEN_PROGRAM_ID
                         );
-                        if (tokenAccountsResponse.error) {
-                            setHasRequiredToken(false);
-                            return;
-                        }
-                        const accounts = tokenAccountsResponse.value || tokenAccountsResponse.result?.value || [];
-                        const requiredTokenAccount = accounts.find(account => 
-                            account.account.data.parsed?.info?.mint === requiredTokenMintPk.toString()
-                        );
-                        if (requiredTokenAccount) {
-                            const tokenAmount = Number(requiredTokenAccount.account.data.parsed.info.tokenAmount.uiAmount);
-                            if (tokenAmount > 0) {
-                                setHasRequiredToken(true);
-                                return;
+                        if (!tokenAccountsResponse.error) {
+                            const accounts = tokenAccountsResponse.value || tokenAccountsResponse.result?.value || [];
+                            const requiredTokenAccount = accounts.find(account => 
+                                account.account.data.parsed?.info?.mint === requiredTokenMintPk.toString()
+                            );
+                            if (requiredTokenAccount) {
+                                const tokenAmount = Number(requiredTokenAccount.account.data.parsed.info.tokenAmount.uiAmount);
+                                if (tokenAmount > 0) {
+                                    setHasRequiredToken(true);
+                                    toast.success('NOM token detected! You can now use the swap feature.');
+                                }
                             }
                         }
-                        setHasRequiredToken(false);
                     } catch (error) {
-                        setHasRequiredToken(false);
+                        console.error('Error rechecking NOM token:', error);
                     }
-                };
-                checkRequiredToken();
+                }, 2000);
             }
-
+            
         } catch (error) {
-            console.error('Error buying NOM token:', error.response ? error.response.data : error);
-            toast.error(`Failed to buy NOM: ${error.message || 'Unknown error'}`);
+            console.error('Error buying NOM token:', error);
+            toast.error(`Failed to buy NOM: ${error.message}`);
         } finally {
             setIsLoading(false);
         }
