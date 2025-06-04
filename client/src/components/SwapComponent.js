@@ -8,6 +8,9 @@ import { toast } from 'react-toastify';
 import { initSdk } from '../config';
 import axios from 'axios';
 import { VersionedTransaction } from '@solana/web3.js';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useSpring, animated } from '@react-spring/web';
 
 const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj";
 
@@ -15,6 +18,8 @@ const NOM_TOKEN_MINT = "2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk";
 const NOM_POOL_ID = "949rM1nZto1ZGYP5Mxwrfvwhr5CxRbVTsHaCL9S73pLu";
 
 const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTransactions }) => {
+    const { publicKey, connected, signTransaction, signAllTransactions: walletSignAllTransactions } = useWallet();
+    
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -38,15 +43,42 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         [] // Empty dependency array as the RPC URL is constant
     );
 
+    // Add animation spring
+    const slideAnimation = useSpring({
+        from: { 
+            transform: 'translate(-150%, -50%)',
+            opacity: 0 
+        },
+        to: { 
+            transform: 'translate(-50%, -50%)',
+            opacity: 1 
+        },
+        config: {
+            tension: 120,
+            friction: 20,
+            mass: 1
+        }
+    });
+
+    useEffect(() => {
+        const fetchBalance = async () => {
+            if (publicKey) {
+                const balance = await connection.getBalance(publicKey);
+                setBalance(balance / LAMPORTS_PER_SOL);
+            }
+        };
+        fetchBalance();
+    }, [publicKey, connection]);
+
     useEffect(() => {
         const checkRequiredToken = async () => {
-            if (!window.solana?.publicKey) return;
+            if (!publicKey) return;
             
             try {
                 const requiredTokenMint = new PublicKey('2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk');
                 
                 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
-                    window.solana.publicKey,
+                    publicKey,
                     {
                         mint: requiredTokenMint
                     }
@@ -71,17 +103,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         };
 
         checkRequiredToken();
-    }, [connection]); // Add connection to dependency array
-
-    useEffect(() => {
-        const fetchBalance = async () => {
-            if (window.solana?.publicKey) {
-                const balance = await connection.getBalance(window.solana.publicKey);
-                setBalance(balance / LAMPORTS_PER_SOL);
-            }
-        };
-        fetchBalance();
-    }, [connection]); // Add connection to dependency array
+    }, [publicKey, connection]);
 
     const getPoolId = async (raydium, mintA, mintB) => {
         if (mintA.toString() === NOM_TOKEN_MINT) {
@@ -197,7 +219,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
     };
 
     const handleSwap = async () => {
-        if (isLoading || !fromAmount || !window.solana?.publicKey) {
+        if (isLoading || !fromAmount || !publicKey) {
             toast.error('Wallet not connected or invalid amount');
             return;
         }
@@ -205,9 +227,9 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
         try {
             const wallet = {
-                publicKey: window.solana.publicKey,
-                signTransaction: window.solana.signTransaction.bind(window.solana),
-                signAllTransactions: window.solana.signAllTransactions.bind(window.solana)
+                publicKey: publicKey,
+                signTransaction: signTransaction.bind(null),
+                signAllTransactions: walletSignAllTransactions.bind(null)
             };
 
             const raydium = await initSdk();
@@ -247,15 +269,15 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 console.log('Swap executed:', result);
             } catch (executeError) {
                 console.log('Falling back to manual transaction sending:', executeError);
-                const signedTransaction = await window.solana.signTransaction(transaction);
+                const signedTransaction = await signTransaction(transaction);
                 const signature = await connection.sendRawTransaction(signedTransaction.serialize());
                 await connection.confirmTransaction(signature, "confirmed");
             }
             
             toast.success('Swap successful!');
             
-            if (window.solana?.publicKey) {
-                const updatedBalance = await connection.getBalance(window.solana.publicKey);
+            if (publicKey) {
+                const updatedBalance = await connection.getBalance(publicKey);
                 setBalance(updatedBalance / LAMPORTS_PER_SOL);
             }
             
@@ -308,7 +330,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
     };
 
     const buyNomToken = async () => {
-        if (!window.solana?.publicKey) {
+        if (!publicKey) {
             toast.error('Please connect your wallet first');
             return;
         }
@@ -329,7 +351,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 computeUnitPriceMicroLamports: '100',
                 swapResponse: quoteResponse.data,
                 txVersion,
-                wallet: window.solana.publicKey.toString(),
+                wallet: publicKey.toString(),
                 wrapSol: true,
                 unwrapSol: false,
             });
@@ -337,7 +359,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             const txBuffer = Buffer.from(txResponse.data.data[0].transaction, 'base64');
             const transaction = VersionedTransaction.deserialize(txBuffer);
             
-            const signedTx = await window.solana.signTransaction(transaction);
+            const signedTx = await signTransaction(transaction);
             const signature = await connection.sendRawTransaction(signedTx.serialize());
             
             await connection.confirmTransaction(signature);
@@ -351,6 +373,18 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             setIsLoading(false);
         }
     };
+
+    if (!connected) {
+        return (
+            <div className="swap-container">
+                <animated.div className="swap-box" style={slideAnimation}>
+                    <p>Please connect your wallet to use the swap feature.</p>
+                    <WalletMultiButton />
+                    <button className="close-button" onClick={onClose}>Close</button>
+                </animated.div>
+            </div>
+        );
+    }
 
     return (
         <div className="swap-container">
