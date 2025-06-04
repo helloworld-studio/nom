@@ -106,30 +106,35 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
             const poolId = await getPoolId(raydium, mintA, mintB);
             console.log("Pool ID:", poolId.toString());
             
-            // Get pool info using SDK method
             const poolInfo = await raydium.launchpad.getRpcPoolInfo({ poolId });
             if (!poolInfo) {
                 toast.error('Could not get pool info for this token.');
                 return;
             }
-            console.log("Pool Info:", poolInfo);
 
-            // Transform pool info into the expected format
-            const transformedPoolInfo = {
-                ...poolInfo,
-                configInfo: {
-                    ...poolInfo.configInfo,
-                    tradeFeeRate: poolInfo.configInfo.tradeFeeRate.toString(),
-                    curveType: poolInfo.configInfo.curveType
-                },
-                platformInfo: {
-                    feeRate: poolInfo.platformFee.toString()
-                }
-            };
+            if (poolInfo.realA.toString() === '0') {
+                console.log("Pool has no tokens available for swap");
+                toast.error('This pool currently has no tokens available for swap');
+                setToAmount('');
+                return;
+            }
 
-            // Calculate with Curve using the transformed pool info
+            // Log pool info without modifying it
+            console.log("Pool Info:", {
+                status: poolInfo.status,
+                curveType: poolInfo.configInfo.curveType,
+                supply: poolInfo.supply.toString(),
+                realA: poolInfo.realA.toString(),
+                realB: poolInfo.realB.toString(),
+                virtualA: poolInfo.virtualA.toString(),
+                virtualB: poolInfo.virtualB.toString(),
+                tradeFeeRate: poolInfo.configInfo.tradeFeeRate.toString(),
+                platformFee: poolInfo.platformFee.toString()
+            });
+
+            // Use the pool info directly without transformation
             const res = Curve.buyExactIn({
-                poolInfo: transformedPoolInfo,
+                poolInfo,
                 amountB: inAmount,
                 protocolFeeRate: poolInfo.configInfo.tradeFeeRate,
                 platformFeeRate: poolInfo.platformFee,
@@ -137,7 +142,10 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 shareFeeRate: new BN(0),
             });
 
-            console.log("Raw output amount (amountA):", res.amountA.toString());
+            console.log("Calculation result:", {
+                inputAmount: inAmount.toString(),
+                outputAmount: res.amountA.toString()
+            });
 
             if (!res || !res.amountA) {
                 console.error("Calculation result invalid", res);
@@ -145,7 +153,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 return;
             }
 
-            // Use mintDecimalsA from pool info for the correct decimal places
             const decimals = poolInfo.mintDecimalsA;
             const divisor = new Decimal(10).pow(decimals);
             
@@ -153,15 +160,9 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 .div(divisor)
                 .toFixed(decimals);
 
-            console.log("Calculated expected amount:", expectedAmount);
+            console.log("Final amount:", expectedAmount);
 
-            if (expectedAmount && !isNaN(parseFloat(expectedAmount))) {
-                setToAmount(expectedAmount);
-            } else {
-                console.error("Final calculated amount is invalid:", expectedAmount);
-                toast.error('Calculation resulted in an invalid amount.');
-                setToAmount('');
-            }
+            setToAmount(expectedAmount);
 
         } catch (error) {
             console.error('Error calculating swap:', error);
