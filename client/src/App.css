@@ -589,6 +589,7 @@ button:hover {
   align-items: center;
   gap: 8px;
   margin: 0;
+  margin-left: auto;
 }
 
 .custom-amount-controls .amount-control-btn {
@@ -842,7 +843,7 @@ button:hover {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -851,7 +852,7 @@ button:hover {
   border: none;
   outline: none;
   min-width: 80px;
-  max-width: 120px;
+  max-width: 180px;
   font-size: 17px;
   font-weight: 400;
   color: #000000;
@@ -983,6 +984,30 @@ button:hover {
   .loading-text {
     color: #828181;
   }
+}
+
+/* Update the currency-info class for the To (Estimate) section */
+.to-amount-input + .currency-info {
+    display: flex;
+    flex-direction: column;  /* Change to column */
+    align-items: flex-end;   /* Align items to the right */
+    gap: 4px;
+    margin: 0;
+    margin-left: auto;
+}
+
+.to-amount-input + .currency-info .currency-symbol {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.to-amount-input + .currency-info .currency-name {
+    font-size: 14px;
+    color: #8E8E93;
+}
+
+.to-amount-input + .currency-info .currency-mint {
+    font-size: 12px;
 }
 
 

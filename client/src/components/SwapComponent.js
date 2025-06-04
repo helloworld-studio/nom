@@ -112,12 +112,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 return;
             }
 
-            if (poolInfo.realA.toString() === '0') {
-                console.log("Pool has no tokens available for swap");
-                toast.error('This pool currently has no tokens available for swap');
-                setToAmount('');
-                return;
-            }
 
             // Log pool info without modifying it
             console.log("Pool Info:", {
@@ -235,23 +229,12 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 return;
             }
 
-            const transformedPoolInfo = {
-                ...poolInfo,
-                configInfo: {
-                    ...poolInfo.configInfo,
-                    tradeFeeRate: poolInfo.configInfo.tradeFeeRate.toString(),
-                    curveType: poolInfo.configInfo.curveType
-                },
-                platformInfo: {
-                    feeRate: poolInfo.platformFee.toString()
-                }
-            };
-
+            // Use poolInfo directly without transformation
             const { transaction, execute } = await raydium.launchpad.buyToken({
                 programId: new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID),
                 mintA,
                 slippage: slippageBasisPoints,
-                configInfo: transformedPoolInfo.configInfo,
+                configInfo: poolInfo.configInfo,
                 platformFeeRate: poolInfo.platformFee,
                 txVersion: TxVersion.V0,
                 buyAmount: inAmount,
@@ -446,7 +429,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                                 <button className="amount-control-btn" onClick={decrementAmount}>−</button>
                             </div>
                             <div className="currency-info">
-                                <span className="currency-symbol">◎</span> 
+                                <span className="currency-symbol">👽</span> 
                                 <span className="currency-name">SOL</span>
                             </div>
                         </div>
