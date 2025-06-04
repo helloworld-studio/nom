@@ -234,17 +234,27 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 return;
             }
 
+            const transformedPoolInfo = {
+                ...poolInfo,
+                configInfo: {
+                    ...poolInfo.configInfo,
+                    tradeFeeRate: poolInfo.configInfo.tradeFeeRate.toString(),
+                    curveType: poolInfo.configInfo.curveType
+                },
+                platformInfo: {
+                    feeRate: poolInfo.platformFee.toString()
+                }
+            };
+
             const { transaction, execute } = await raydium.launchpad.buyToken({
                 programId: new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID),
                 mintA,
                 slippage: slippageBasisPoints,
-                configInfo: poolInfo.configInfo,
+                configInfo: transformedPoolInfo.configInfo,
                 platformFeeRate: poolInfo.platformFee,
                 txVersion: TxVersion.V0,
                 buyAmount: inAmount,
                 skipPreflight: false,
-                poolId: poolId,
-                poolInfo: poolInfo
             });
 
             try {

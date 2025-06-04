@@ -501,18 +501,22 @@ button:hover {
 
 .amount-input-container {
   display: flex;
+  flex-direction: row;
   align-items: center;
   background: rgba(118, 118, 128, 0.12);
   border-radius: 0.5rem;
   padding: 0.75rem;
   margin-bottom: 1rem;
+  width: 100%;
 }
 
 .amount-controls {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
   gap: 0.5rem;
-  flex: 1;
 }
 
 .amount-control-btn {
@@ -528,6 +532,7 @@ button:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .amount-control-btn:hover {
@@ -543,7 +548,7 @@ button:hover {
   background: none;
   border: none;
   outline: none;
-  flex: 1;
+  width: 80px;
   font-size: 1rem;
   color: #000000;
   text-align: center;
@@ -580,31 +585,36 @@ button:hover {
 
 .custom-amount-controls {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-left: 0.5rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .custom-amount-controls .amount-control-btn {
-  width: 1.5rem;
-  height: 1.5rem;
-  font-size: 0.75rem;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .currency-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: 4px;
+  margin: 0;
+  margin-left: auto;
 }
 
 .currency-symbol {
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .currency-name {
-  font-size: 0.875rem;
+  font-size: 14px;
   color: #8E8E93;
 }
 
@@ -619,9 +629,9 @@ button:hover {
 }
 
 .balance {
-  font-size: 0.75rem;
+  font-size: 12px;
   color: #8E8E93;
-  margin-top: 0.25rem;
+  margin-top: 4px;
 }
 
 .swap-arrow {
@@ -829,13 +839,19 @@ button:hover {
   padding: 12px;
   width: 100%;
   border: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .amount-input input {
   background: none;
   border: none;
   outline: none;
-  width: 100%;
+  min-width: 80px;
+  max-width: 120px;
   font-size: 17px;
   font-weight: 400;
   color: #000000;
