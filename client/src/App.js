@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import "./App.css";
-import logo from "./assets/nom.png";
+import logo from "./assets/nom.svg";
 import BananaGang from "./assets/helloworld.png";
 
 import ViewToken from "./components/ViewToken";
@@ -35,13 +35,14 @@ const LoadingScreen = () => {
     return (
         <div className="loading-screen">
             <div className="loading-container">
+                <img src={logo} alt="nom" className="loading-logo" />
                 <div className="loading-bar">
                     <div 
                         className="loading-progress" 
                         style={{ width: `${progress}%` }}
                     />
                 </div>
-                <div className="loading-text">Loading Network Observer for Memecoins </div>
+                <div className="loading-text">Network Observer for Memecoins </div>
             </div>
         </div>
     );

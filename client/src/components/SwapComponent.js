@@ -17,8 +17,8 @@ const RAYDIUM_LAUNCHPAD_PROGRAM_ID = "LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3u
 const NOM_TOKEN_MINT = "2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk";
 const NOM_POOL_ID = "949rM1nZto1ZGYP5Mxwrfvwhr5CxRbVTsHaCL9S73pLu";
 
-const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTransactions }) => {
-    const { publicKey, connected, signTransaction, signAllTransactions: walletSignAllTransactions } = useWallet();
+const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
+    const { publicKey, connected, signTransaction, signAllTransactions } = useWallet();
     
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
@@ -277,8 +277,8 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         try {
             const wallet = {
                 publicKey: publicKey,
-                signTransaction: signTransaction.bind(null),
-                signAllTransactions: walletSignAllTransactions.bind(null)
+                signTransaction,
+                signAllTransactions
             };
 
             const raydium = await initSdk();
@@ -300,6 +300,12 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
                 return;
             }
 
+            // Add validation for pool liquidity
+            if (poolInfo.realB && new BN(poolInfo.realB.toString()).lt(inAmount)) {
+                toast.error('Insufficient liquidity in the pool for this swap amount.');
+                return;
+            }
+
             // Use poolInfo directly without transformation
             const { transaction, execute } = await raydium.launchpad.buyToken({
                 programId: new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID),
@@ -314,7 +320,10 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
 
             try {
                 console.log('Attempting to execute transaction...');
-                const result = await execute({ sendAndConfirm: true });
+                const result = await execute({ 
+                    sendAndConfirm: true,
+                    wallet: wallet // Pass wallet object explicitly
+                });
                 console.log('Swap executed:', result);
             } catch (executeError) {
                 console.log('Falling back to manual transaction sending:', executeError);

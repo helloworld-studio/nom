@@ -56,9 +56,12 @@ body {
 }
 
 .logo {
-  width: 4rem;
+  width: 7rem;
   height: auto;
 }
+
+
+
 
 .wallet-container {
   flex: 1;
@@ -144,7 +147,7 @@ body {
 }
 
 .token-name {
-  font-size: 1.25rem;
+  font-size: 2rem;
   font-weight: 600;
   color: #000000;
   margin-bottom: 0.1rem;
@@ -441,10 +444,9 @@ button:hover {
 }
 
 .token-info {
-  background: rgba(118, 118, 128, 0.12);
   border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  padding: 0rem;
+  margin-bottom: 0.5rem;
 }
 
 .token-label {
@@ -738,10 +740,6 @@ button:hover {
     color: #FFFFFF;
   }
   
-  .token-info {
-    background: rgba(235, 235, 245, 0.12);
-  }
-  
   .amount-input-container {
     background: rgba(235, 235, 245, 0.12);
   }
@@ -950,8 +948,13 @@ button:hover {
   gap: 1rem;
 }
 
+.loading-logo {
+  width: 18rem;
+  height: auto;
+}
+
 .loading-bar {
-  width: 200px;
+  width: 280px;
   height: 3px;
   background: rgba(142, 142, 147, 0.3);
   border-radius: 1.5px;
