@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TxVersion, Curve, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
+import { TxVersion, Curve, getPdaLaunchpadPoolId, PlatformConfig } from '@raydium-io/raydium-sdk-v2';
 import { PublicKey, LAMPORTS_PER_SOL, Connection } from '@solana/web3.js';
 import { NATIVE_MINT } from '@solana/spl-token';
 import BN from 'bn.js';
@@ -161,7 +161,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
         return getPdaLaunchpadPoolId(new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID), mintA, mintB).publicKey;
     };
 
-    const calculateSwap = async (inputAmount) => {
+    const calculateSwap = async (inputAmount, fromToken, toToken) => {
         setToAmount('');
         if (!fixedTokenData.mint || inputAmount <= 0) {
             console.log("Calculation skipped: Invalid input amount or tokenMint missing");
@@ -173,6 +173,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
             const mintA = new PublicKey(fixedTokenData.mint);
             const mintB = NATIVE_MINT;
             const inAmount = new BN(Math.floor(inputAmount * LAMPORTS_PER_SOL));
+            const slippageBasisPoints = getSlippageBasisPoints();
 
             const poolId = await getPoolId(raydium, mintA, mintB);
             console.log("Pool ID:", poolId.toString());
@@ -197,36 +198,108 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                 platformFee: poolInfo.platformFee.toString()
             });
 
-            // Use the pool info directly without transformation
-            const res = Curve.buyExactIn({
+            // === STEP 1: DEBUGGING PLATFORM CONFIG ===
+            console.log('=== DEBUGGING PLATFORM CONFIG ===');
+            try {
+                const data = await raydium.connection.getAccountInfo(poolInfo.platformId);
+                if (data) {
+                    const platformInfo = PlatformConfig.decode(data.data);
+                    console.log('Official platformInfo.feeRate:', platformInfo.feeRate.toString());
+                    console.log('Current poolInfo.platformFee:', poolInfo.platformFee.toString());
+                    console.log('Are they equal?', platformInfo.feeRate.eq(poolInfo.platformFee));
+                    
+                    // Store for later use in testing
+                    window.debugPlatformInfo = platformInfo;
+                } else {
+                    console.log('No platform account data found');
+                }
+            } catch (e) {
+                console.log('Platform config decode error:', e);
+            }
+
+            // === STEP 2: POOL VALIDATION ===
+            console.log('=== POOL VALIDATION ===');
+            console.log('Pool status:', poolInfo.status);
+            console.log('Pool mintA:', poolInfo.mintA.toString());
+            console.log('Pool mintB:', poolInfo.mintB.toString());
+            console.log('Expected mintA:', fixedTokenData.mint);
+            console.log('Expected mintB:', NATIVE_MINT.toString());
+            console.log('Pool platformId:', poolInfo.platformId.toString());
+
+            // === STEP 3: POOL DIRECTION CHECK ===
+            console.log('=== POOL DIRECTION CHECK ===');
+            console.log('mintA (token):', poolInfo.mintA.toString());
+            console.log('mintB (should be SOL):', poolInfo.mintB.toString());
+            console.log('NATIVE_MINT:', NATIVE_MINT.toString());
+            console.log('Is mintB actually SOL?', poolInfo.mintB.equals(NATIVE_MINT));
+            console.log('Input amount (lamports):', inAmount.toString());
+            console.log('Input amount (SOL):', inAmount.div(new BN(LAMPORTS_PER_SOL)).toString());
+            console.log('Pool SOL reserves:', poolInfo.realB.toString());
+            console.log('Pool token reserves:', poolInfo.realA.toString());
+
+            // Test with official parameters (Step 2 from our plan)
+            if (window.debugPlatformInfo) {
+                console.log('=== TESTING WITH OFFICIAL PARAMETERS ===');
+                try {
+                    const shareFeeRate = new BN(10000); // As per docs
+                    
+                    const officialRes = Curve.buyExactIn({
+                        poolInfo,
+                        amountB: inAmount,
+                        protocolFeeRate: poolInfo.configInfo.tradeFeeRate,
+                        platformFeeRate: window.debugPlatformInfo.feeRate, // Use decoded platform fee
+                        curveType: poolInfo.configInfo.curveType,
+                        shareFeeRate, // Use proper share fee rate
+                    });
+                    
+                    console.log('Official calculation result:', {
+                        inputAmount: inAmount.toString(),
+                        outputAmount: officialRes.amountA.toString(),
+                        isNegative: officialRes.amountA.isNeg()
+                    });
+                    
+                    // If official calculation works, we found the issue!
+                    if (!officialRes.amountA.isNeg() && !officialRes.amountA.isZero()) {
+                        console.log('🎉 OFFICIAL PARAMETERS WORK! The issue is with platform fee or share fee rate.');
+                    }
+                } catch (officialError) {
+                    console.log('Official calculation also failed:', officialError);
+                }
+            }
+
+
+            const result = Curve.buyExactIn({
                 poolInfo,
                 amountB: inAmount,
                 protocolFeeRate: poolInfo.configInfo.tradeFeeRate,
-                platformFeeRate: poolInfo.platformFee,
+                platformFeeRate: window.debugPlatformInfo.feeRate,
                 curveType: poolInfo.configInfo.curveType,
-                shareFeeRate: new BN(0),
+                shareFeeRate: new BN(10000),
+                slippageTolerance: slippageBasisPoints  // Add this line
             });
-
-            console.log("Calculation result:", {
-                inputAmount: inAmount.toString(),
-                outputAmount: res.amountA.toString()
-            });
-
-            if (!res || !res.amountA) {
-                console.error("Calculation result invalid", res);
+            
+            // Only check if calculation succeeded
+            if (!result || !result.amountA) {
+                console.error("Calculation result invalid", result);
                 toast.error('Calculation failed.');
+                return;
+            }
+            
+            // Proceed with the swap since liquidity is guaranteed by design
+            if (result.amountA.isNeg()) {
+                console.error("Negative calculation result", result.amountA.toString());
+                toast.error('Insufficient liquidity for this swap amount.');
                 return;
             }
 
             const decimals = poolInfo.mintDecimalsA;
             const divisor = new Decimal(10).pow(decimals);
             
-            const expectedAmount = new Decimal(res.amountA.toString())
+            const expectedAmount = new Decimal(result.amountA.toString())
                 .div(divisor)
                 .toFixed(decimals);
 
             console.log("Final amount:", expectedAmount);
-
             setToAmount(expectedAmount);
 
         } catch (error) {
@@ -262,9 +335,9 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
 
     const getSlippageBasisPoints = () => {
         if (slippage === 'custom' && customSlippage) {
-            return new BN(Math.floor(parseFloat(customSlippage) * 100));
+            return new BN(Math.floor(parseFloat(customSlippage) * 100 * 100));
         }
-        return new BN(slippage * 100);
+        return new BN(slippage * 100 * 100);
     };
 
     const handleSwap = async () => {
@@ -297,12 +370,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
             
             if (!poolInfo || !poolInfo.configInfo) {
                 toast.error('Could not retrieve complete pool configuration for swap.');
-                return;
-            }
-
-            // Add validation for pool liquidity
-            if (poolInfo.realB && new BN(poolInfo.realB.toString()).lt(inAmount)) {
-                toast.error('Insufficient liquidity in the pool for this swap amount.');
                 return;
             }
 
