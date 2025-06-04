@@ -105,6 +105,55 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
         checkRequiredToken();
     }, [publicKey, connection]);
 
+    useEffect(() => {
+        const handleWalletChange = async () => {
+            console.log('Wallet state changed:', { connected, publicKey: publicKey?.toString() });
+            
+            // Reset states when wallet disconnects
+            if (!connected || !publicKey) {
+                setBalance(0);
+                setHasRequiredToken(false);
+                setFromAmount('');
+                setToAmount('');
+                return;
+            }
+
+            // Refresh balances and token check when wallet changes
+            try {
+                // Update SOL balance
+                const balance = await connection.getBalance(publicKey);
+                setBalance(balance / LAMPORTS_PER_SOL);
+
+                // Check for required token
+                const requiredTokenMint = new PublicKey('2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk');
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+                    publicKey,
+                    {
+                        mint: requiredTokenMint
+                    }
+                );
+
+                if (!tokenAccounts?.value?.length) {
+                    setHasRequiredToken(false);
+                    return;
+                }
+
+                const requiredToken = tokenAccounts.value.find(account => 
+                    account.account.data.parsed.info.tokenAmount.amount > 0
+                );
+
+                setHasRequiredToken(!!requiredToken);
+
+            } catch (error) {
+                console.error('Error updating wallet state:', error);
+                setHasRequiredToken(false);
+            }
+        };
+
+        handleWalletChange();
+
+    }, [connected, publicKey, connection]); // Dependencies include wallet state changes
+
     const getPoolId = async (raydium, mintA, mintB) => {
         if (mintA.toString() === NOM_TOKEN_MINT) {
             return new PublicKey(NOM_POOL_ID);
@@ -330,7 +379,7 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose, signAllTran
     };
 
     const buyNomToken = async () => {
-        if (!publicKey) {
+        if (!publicKey || !signTransaction) {
             toast.error('Please connect your wallet first');
             return;
         }
