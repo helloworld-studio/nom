@@ -203,17 +203,14 @@ class TokenMonitor {
 
   async processTokenCreation(signature, tx, mintAddress, platform = "Raydium Launchpad") {
     try {
-      // Add check to prevent duplicate processing
       if (this.allTokensData.has(mintAddress)) {
         this.formatLog(`Token ${mintAddress} already processed, skipping duplicate`, "info");
         return;
       }
       
-      // Check if this is a LetsBonk token
       const isLetsBonk = this.isLetsBonkToken(mintAddress);
       const actualPlatform = isLetsBonk ? "LetsBonk" : "Raydium Launchpad";
       
-      // Get basic token info from transaction
       let uiAmount = 0;
       for (const balance of tx.meta.postTokenBalances) {
         if (balance.mint === mintAddress) {
