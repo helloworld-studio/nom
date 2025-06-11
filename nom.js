@@ -117,7 +117,6 @@ const tokenMonitor = new TokenMonitor(connection, metaplex);
 const initSdk = async () => {
   const { Raydium } = require('@raydium-io/raydium-sdk-v2');
   
-  // Create a custom connection that uses the RPC proxy for consistency
   class ProxiedConnection extends Connection {
     constructor() {
       super(RPC_ENDPOINT, {
@@ -128,11 +127,9 @@ const initSdk = async () => {
 
     async _rpcRequest(method, args) {
       try {
-        // Use the same RPC proxy that the frontend uses
         return await rpcProxy.makeRpcRequest(method, args);
       } catch (error) {
         console.error(`Proxied RPC request failed for ${method}:`, error.message);
-        // Fall back to direct connection if proxy fails
         return await super._rpcRequest(method, args);
       }
     }
@@ -343,7 +340,6 @@ app.post('/api/rpc', rpcLimiter, async (req, res) => {
   try {
     const { method, params } = req.body;
     
-    // Enhanced logging for getAccountInfo
     if (method === 'getAccountInfo') {
       console.log(`\n🔍 [nom.js:${requestId}] === FRONTEND REQUEST DEBUG START ===`);
       console.log(`🔍 [nom.js:${requestId}] Received getAccountInfo request`);
@@ -363,7 +359,6 @@ app.post('/api/rpc', rpcLimiter, async (req, res) => {
                 poolId: new PublicKey(poolId) 
             });
             
-            // Get token decimals from mint accounts
             const mintAInfo = await connection.getAccountInfo(poolInfo.mintA);
             const mintBInfo = await connection.getAccountInfo(poolInfo.mintB);
             
@@ -378,7 +373,6 @@ app.post('/api/rpc', rpcLimiter, async (req, res) => {
                 mintDecimalsB = mintBInfo.data.readUInt8(44);
             }
             
-            // Add decimals to the pool info response
             const enhancedPoolInfo = {
                 ...poolInfo,
                 mintDecimalsA,
@@ -410,7 +404,6 @@ app.post('/api/rpc', rpcLimiter, async (req, res) => {
       'getTransaction', 'getVersion', 'requestAirdrop',
       'sendTransaction', 'confirmTransaction', 'sendRawTransaction',
       'getRpcPoolInfo',
-      // Add these additional methods that Raydium SDK might need:
       'getProgramAccounts', 'getMultipleAccounts', 'simulateTransaction',
       'getConfirmedTransaction', 'getConfirmedSignaturesForAddress2',
       'getTokenLargestAccounts', 'getFeeForMessage', 'getRecentPerformanceSamples'
@@ -431,7 +424,6 @@ app.post('/api/rpc', rpcLimiter, async (req, res) => {
     
     const result = await rpcProxy.makeRpcRequest(method, params);
     
-    // Enhanced response logging for getAccountInfo
     if (method === 'getAccountInfo') {
       console.log(`🔍 [nom.js:${requestId}] RPC result received:`, JSON.stringify(result, null, 2));
       console.log(`🔍 [nom.js:${requestId}] Sending response to frontend...`);

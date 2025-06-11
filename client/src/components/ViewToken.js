@@ -13,7 +13,6 @@ const ViewToken = () => {
     const [showInfo, setShowInfo] = useState(false);
     const [isWalletVerified, setIsWalletVerified] = useState(false);
 
-    // Wrap setIsWalletVerified in useCallback to prevent unnecessary re-renders
     const handleSetWalletVerified = useCallback((verified) => {
         setIsWalletVerified(verified);
     }, []);
@@ -30,7 +29,6 @@ const ViewToken = () => {
             }
         };
 
-        // Run immediately once
         fetchLatestTransaction();
 
         const interval = setInterval(fetchLatestTransaction, 5000);

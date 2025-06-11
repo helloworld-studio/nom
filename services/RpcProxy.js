@@ -51,10 +51,8 @@ class RpcProxy {
         }
       );
       
-      // Add this transformation logic directly before returning the response.data
       if (method === 'getAccountInfo' && response.data.result && response.data.result.value) {
         const base64Data = response.data.result.value.data[0];
-        // Convert base64 string to Uint8Array directly
         response.data.result.value.data = new Uint8Array(Buffer.from(base64Data, 'base64'));
         console.log('🔧 [RpcProxy] Transformed getAccountInfo data to Uint8Array for frontend');
       }
@@ -67,7 +65,6 @@ class RpcProxy {
         console.log('🔍 [RpcProxy] Response headers:', JSON.stringify(response.headers, null, 2));
         console.log('🔍 [RpcProxy] Raw response data:', JSON.stringify(response.data, null, 2));
         
-        // Detailed analysis of the response
         if (response.data) {
           console.log('🔍 [RpcProxy] Response analysis:');
           console.log('  - Has jsonrpc:', !!response.data.jsonrpc);

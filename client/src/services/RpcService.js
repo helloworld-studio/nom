@@ -26,7 +26,6 @@ class RpcService {
     }
   }
 
-  // Convenience methods for common RPC calls
   async getBalance(publicKey) {
     const result = await this.makeRpcRequest('getBalance', [publicKey.toString()]);
     return result.result?.value || 0;
@@ -59,7 +58,6 @@ class RpcService {
     ]);
   }
 
-  // Add missing methods that SwapComponent needs
   async getRpcPoolInfo({ poolId }) {
     console.log('🔍 RpcService.getRpcPoolInfo called with poolId:', poolId.toString());
     return this.makeRpcRequest('getRpcPoolInfo', [{ poolId: poolId.toString() }]);
@@ -81,7 +79,6 @@ class RpcService {
   }
 }
 
-// Create a singleton instance
 const rpcService = new RpcService();
 
 export default rpcService;

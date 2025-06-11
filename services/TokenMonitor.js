@@ -228,7 +228,6 @@ class TokenMonitor {
       
       const feeSol = tx.meta.fee ? tx.meta.fee / LAMPORTS_PER_SOL : 0;
       
-      // Get metadata (this is the only RPC call we'll make)
       const fetchedMetadata = await this.getTokenMetadata(mintAddress);
       
       const tokenData = {
@@ -250,7 +249,6 @@ class TokenMonitor {
         }
       };
 
-      // Try to get additional metadata from transaction itself (no RPC)
       const txMetadata = await this.extractMetadataFromTransaction(tx);
       if (txMetadata) {
         tokenData.name = txMetadata.name || tokenData.name;
@@ -263,7 +261,6 @@ class TokenMonitor {
         tokenData.image = txMetadata.image || tokenData.image;
       }
       
-      // Get creator from transaction
       if (tx.transaction?.message?.accountKeys) {
         const signers = tx.transaction.message.accountKeys
           .filter(key => key.signer)
@@ -275,7 +272,6 @@ class TokenMonitor {
         }
       }
 
-      // Enhanced logging with platform detection
       this.formatLog(`├─ Platform: ${actualPlatform} ${isLetsBonk ? '🎯' : ''}`, "info");
       this.formatLog(`├─ Name: ${tokenData.name}`, "info");
       this.formatLog(`├─ Symbol: ${tokenData.symbol}`, "info");
@@ -286,12 +282,10 @@ class TokenMonitor {
       if (tokenData.metadata.telegram) this.formatLog(`├─ Telegram: ${tokenData.metadata.telegram}`, "info");
       this.formatLog(`└─ Block Time: ${new Date(tx.blockTime * 1000).toLocaleString()}`, "info");
       
-      // Set as latest token
           this.latestTokenData = tokenData;
           this.latestTransaction = tokenData;
       this.formatLog(`New latest token set: ${tokenData.name} (${tokenData.symbol}) - ${actualPlatform}`, "success");
       
-      // Add line break after each token
       console.log(''); // Empty line for separation
       
       this.allTokensData.set(mintAddress, tokenData);
@@ -301,13 +295,10 @@ class TokenMonitor {
     }
   }
 
-  // Simple original filtering - just check for Initialize instruction
   isRaydiumTokenCreation(logs) {
     return logs.logs.some(log => log.includes("Program log: Instruction: Initialize"));
   }
 
-  // Remove the complex isActualTokenCreation method entirely
-  // (delete this method)
 
   async monitorTokens() {
     if (this.isMonitoring) {
@@ -325,12 +316,10 @@ class TokenMonitor {
         new PublicKey(this.RAYDIUM_LAUNCHPAD_PROGRAM_ID),
         async (logs, context) => {
           try {
-            // Early exit if already processed
             if (this.processedTransactions.has(logs.signature)) {
               return;
             }
             
-            // Simple original filtering - just check for Initialize instruction
             if (!this.isRaydiumTokenCreation(logs)) {
               return;
             }
@@ -346,13 +335,11 @@ class TokenMonitor {
               return;
             }
             
-            // Remove the additional isActualTokenCreation validation
             
             if (!tx.meta?.postTokenBalances?.length) {
               return;
             }
             
-            // Find new tokens - filter for LetsBonk only
             for (const balance of tx.meta.postTokenBalances) {
               if (!balance.mint || 
                   balance.mint === "So11111111111111111111111111111111111111112" ||
@@ -360,12 +347,10 @@ class TokenMonitor {
                 continue;
               }
               
-              // Filter to only process LetsBonk tokens
               if (!this.isLetsBonkToken(balance.mint)) {
                 continue;
               }
               
-              // Add to known tokens immediately to prevent duplicates
               this.knownTokens.add(balance.mint);
               
               this.formatLog(`🎉 NEW LETSBONK TOKEN CREATED!`, "success");
@@ -375,7 +360,6 @@ class TokenMonitor {
                 
               await this.processTokenCreation(logs.signature, tx, balance.mint);
             
-              // Process only the first new token per transaction to avoid spam
               break;
             }
             

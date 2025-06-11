@@ -37,13 +37,12 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
 
     const [quickBuyAmount, setQuickBuyAmount] = useState('0.1');
 
-    // Create connection instance using useMemo to avoid recreation on every render
     const connection = useMemo(() => 
         new Connection(process.env.REACT_APP_RPC_URL),
-        [] // Empty dependency array as the RPC URL is constant
+        [] 
     );
 
-    // Add animation spring
+  // Add animation spring
     const slideAnimation = useSpring({
         from: { 
             transform: 'translate(-150%, -50%)',
@@ -109,7 +108,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
         const handleWalletChange = async () => {
             console.log('Wallet state changed:', { connected, publicKey: publicKey?.toString() });
             
-            // Reset states when wallet disconnects
             if (!connected || !publicKey) {
                 setBalance(0);
                 setHasRequiredToken(false);
@@ -118,13 +116,10 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                 return;
             }
 
-            // Refresh balances and token check when wallet changes
             try {
-                // Update SOL balance
                 const balance = await connection.getBalance(publicKey);
                 setBalance(balance / LAMPORTS_PER_SOL);
 
-                // Check for required token
                 const requiredTokenMint = new PublicKey('2MDr15dTn6km3NWusFcnZyhq3vWpYDg7vWprghpzbonk');
                 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
                     publicKey,
@@ -185,7 +180,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
             }
 
 
-            // Log pool info without modifying it
             console.log("Pool Info:", {
                 status: poolInfo.status,
                 curveType: poolInfo.configInfo.curveType,
@@ -198,7 +192,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                 platformFee: poolInfo.platformFee.toString()
             });
 
-            // === STEP 1: DEBUGGING PLATFORM CONFIG ===
             console.log('=== DEBUGGING PLATFORM CONFIG ===');
             try {
                 const data = await raydium.connection.getAccountInfo(poolInfo.platformId);
@@ -208,7 +201,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                     console.log('Current poolInfo.platformFee:', poolInfo.platformFee.toString());
                     console.log('Are they equal?', platformInfo.feeRate.eq(poolInfo.platformFee));
                     
-                    // Store for later use in testing
                     window.debugPlatformInfo = platformInfo;
                 } else {
                     console.log('No platform account data found');
@@ -217,7 +209,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                 console.log('Platform config decode error:', e);
             }
 
-            // === STEP 2: POOL VALIDATION ===
             console.log('=== POOL VALIDATION ===');
             console.log('Pool status:', poolInfo.status);
             console.log('Pool mintA:', poolInfo.mintA.toString());
@@ -226,7 +217,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
             console.log('Expected mintB:', NATIVE_MINT.toString());
             console.log('Pool platformId:', poolInfo.platformId.toString());
 
-            // === STEP 3: POOL DIRECTION CHECK ===
             console.log('=== POOL DIRECTION CHECK ===');
             console.log('mintA (token):', poolInfo.mintA.toString());
             console.log('mintB (should be SOL):', poolInfo.mintB.toString());
@@ -237,7 +227,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
             console.log('Pool SOL reserves:', poolInfo.realB.toString());
             console.log('Pool token reserves:', poolInfo.realA.toString());
 
-            // Test with official parameters (Step 2 from our plan)
             if (window.debugPlatformInfo) {
                 console.log('=== TESTING WITH OFFICIAL PARAMETERS ===');
                 try {
@@ -258,7 +247,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                         isNegative: officialRes.amountA.isNeg()
                     });
                     
-                    // If official calculation works, we found the issue!
                     if (!officialRes.amountA.isNeg() && !officialRes.amountA.isZero()) {
                         console.log('🎉 OFFICIAL PARAMETERS WORK! The issue is with platform fee or share fee rate.');
                     }
@@ -278,14 +266,12 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                 slippageTolerance: slippageBasisPoints  // Add this line
             });
             
-            // Only check if calculation succeeded
             if (!result || !result.amountA) {
                 console.error("Calculation result invalid", result);
                 toast.error('Calculation failed.');
                 return;
             }
             
-            // Proceed with the swap since liquidity is guaranteed by design
             if (result.amountA.isNeg()) {
                 console.error("Negative calculation result", result.amountA.toString());
                 toast.error('Insufficient liquidity for this swap amount.');
@@ -373,7 +359,6 @@ const SwapComponent = ({ tokenMint, tokenName, tokenSymbol, onClose }) => {
                 return;
             }
 
-            // Use poolInfo directly without transformation
             const { transaction, execute } = await raydium.launchpad.buyToken({
                 programId: new PublicKey(RAYDIUM_LAUNCHPAD_PROGRAM_ID),
                 mintA,
