@@ -21,7 +21,7 @@ function formatLog(message, level = "info") {
 }
 
 function isLetsBonkToken(mintAddress) {
-  return true; // For testing, we'll assume all tokens are LetsBonk tokens
+  return true; 
 }
 
 async function isTokenAddress(address) {
@@ -36,7 +36,6 @@ async function isTokenAddress(address) {
 
 async function getTokenMetadata(mintAddress) {
   try {
-    // This is a simplified version - in production you'd use metaplex
     return {
       name: `Test Token ${mintAddress.slice(0, 6)}`,
       symbol: `TT${mintAddress.slice(0, 3)}`,
